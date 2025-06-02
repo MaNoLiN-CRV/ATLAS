@@ -2,8 +2,8 @@
 from datetime import datetime
 import logging
 from typing import List
-from src.common.models import CustomMetrics, RawPerformanceData
-from src.database.sqlite_repository import SQLiteRepository
+from src.common import CustomMetrics, RawPerformanceData
+from src.database import SQLiteRepository
 
 
 class PerformanceAnalyzer:

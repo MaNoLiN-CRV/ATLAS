@@ -1,6 +1,6 @@
 import logging
 from typing import List, Optional
-from ..common.models import PerformanceDataDict, RawPerformanceData
+from src.common import PerformanceDataDict, RawPerformanceData
 
 class PerformanceCollector:
     """A performance collector that gathers SQL Server performance metrics."""
