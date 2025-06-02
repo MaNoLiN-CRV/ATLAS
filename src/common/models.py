@@ -12,13 +12,43 @@ class PerformanceDataDict(TypedDict):
     total_cpu_time_ms: int
     total_logical_reads: int
     total_physical_reads: int
+    total_logical_writes: int
     execution_count: int
     avg_elapsed_time_ms: Decimal
     avg_cpu_time_ms: Decimal
+    avg_logical_reads: Decimal
+    avg_physical_reads: Decimal
+    avg_logical_writes: Decimal
     creation_time: datetime
     last_execution_time: datetime
     query_text: str
     query_plan: str
+    min_elapsed_time_ms: int
+    max_elapsed_time_ms: int
+    min_cpu_time_ms: int
+    max_cpu_time_ms: int
+    plan_generation_num: int
+    total_rows: int
+    avg_rows_returned: Decimal
+    total_dop: int
+    avg_dop: Decimal
+    total_grant_kb: int
+    avg_grant_kb: Decimal
+    total_used_grant_kb: int
+    avg_used_grant_kb: Decimal
+    total_ideal_grant_kb: int
+    avg_ideal_grant_kb: Decimal
+    total_reserved_threads: int
+    total_used_threads: int
+    total_clr_time_ms: int
+    avg_clr_time_ms: Decimal
+    total_spills: int
+    avg_spills: Decimal
+    buffer_hit_ratio: Decimal
+    cpu_efficiency_ratio: Decimal
+    query_hash: str
+    query_plan_hash: str
+    collection_timestamp: datetime
 
 
 

@@ -7,23 +7,101 @@ class PerformanceCollector:
     """A performance collector that gathers SQL Server performance metrics."""
     
     PERFORMANCE_QUERY = """
-    SELECT TOP 10
+    SELECT TOP 100
+        -- Basic timing metrics
         total_elapsed_time / 1000 AS total_elapsed_time_ms,
         total_worker_time / 1000 AS total_cpu_time_ms,
+        
+        -- I/O metrics
         total_logical_reads AS total_logical_reads,
         total_physical_reads AS total_physical_reads,
+        total_logical_writes AS total_logical_writes,
+        
+        -- Execution metrics
         execution_count,
+        
+        -- Average calculations
         CAST((total_elapsed_time / 1000.0) / execution_count AS DECIMAL(18,2)) AS avg_elapsed_time_ms,
         CAST((total_worker_time / 1000.0) / execution_count AS DECIMAL(18,2)) AS avg_cpu_time_ms,
+        CAST(total_logical_reads / CAST(execution_count AS DECIMAL(18,2)) AS DECIMAL(18,2)) AS avg_logical_reads,
+        CAST(total_physical_reads / CAST(execution_count AS DECIMAL(18,2)) AS DECIMAL(18,2)) AS avg_physical_reads,
+        CAST(total_logical_writes / CAST(execution_count AS DECIMAL(18,2)) AS DECIMAL(18,2)) AS avg_logical_writes,
+        
+        -- Time-based data
         creation_time,
         last_execution_time,
+        
+        -- Query information
         st.text AS query_text,
-        qp.query_plan
+        CAST(qp.query_plan AS NVARCHAR(MAX)) AS query_plan,
+        
+        -- Min/Max metrics
+        min_elapsed_time / 1000 AS min_elapsed_time_ms,
+        max_elapsed_time / 1000 AS max_elapsed_time_ms,
+        min_worker_time / 1000 AS min_cpu_time_ms,
+        max_worker_time / 1000 AS max_cpu_time_ms,
+        
+        -- Plan information
+        plan_generation_num,
+        
+        -- Row metrics
+        total_rows,
+        CAST(total_rows / CAST(execution_count AS DECIMAL(18,2)) AS DECIMAL(18,2)) AS avg_rows_returned,
+        
+        -- Parallelism metrics
+        total_dop,
+        CAST(total_dop / CAST(execution_count AS DECIMAL(18,2)) AS DECIMAL(18,2)) AS avg_dop,
+        
+        -- Memory grant metrics
+        ISNULL(total_grant_kb, 0) AS total_grant_kb,
+        CAST(ISNULL(total_grant_kb, 0) / CAST(execution_count AS DECIMAL(18,2)) AS DECIMAL(18,2)) AS avg_grant_kb,
+        ISNULL(total_used_grant_kb, 0) AS total_used_grant_kb,
+        CAST(ISNULL(total_used_grant_kb, 0) / CAST(execution_count AS DECIMAL(18,2)) AS DECIMAL(18,2)) AS avg_used_grant_kb,
+        ISNULL(total_ideal_grant_kb, 0) AS total_ideal_grant_kb,
+        CAST(ISNULL(total_ideal_grant_kb, 0) / CAST(execution_count AS DECIMAL(18,2)) AS DECIMAL(18,2)) AS avg_ideal_grant_kb,
+        
+        -- Threading metrics
+        ISNULL(total_reserved_threads, 0) AS total_reserved_threads,
+        ISNULL(total_used_threads, 0) AS total_used_threads,
+        
+        -- Wait statistics (new)
+        ISNULL(total_clr_time / 1000, 0) AS total_clr_time_ms,
+        CAST(ISNULL(total_clr_time / 1000, 0) / CAST(execution_count AS DECIMAL(18,2)) AS DECIMAL(18,2)) AS avg_clr_time_ms,
+        
+        -- Spill metrics (new)
+        ISNULL(total_spills, 0) AS total_spills,
+        CAST(ISNULL(total_spills, 0) / CAST(execution_count AS DECIMAL(18,2)) AS DECIMAL(18,2)) AS avg_spills,
+        
+        -- Performance ratios (calculated)
+        CASE 
+            WHEN total_logical_reads > 0 
+            THEN CAST((total_physical_reads * 100.0) / total_logical_reads AS DECIMAL(5,2))
+            ELSE 0 
+        END AS buffer_hit_ratio,
+        
+        CASE 
+            WHEN total_elapsed_time > 0 
+            THEN CAST((total_worker_time * 100.0) / total_elapsed_time AS DECIMAL(5,2))
+            ELSE 0 
+        END AS cpu_efficiency_ratio,
+        
+        -- Collection timestamp
+        GETDATE() AS collection_timestamp,
+        
+        -- Query hash for grouping similar queries
+        qs.query_hash,
+        qs.query_plan_hash
+        
     FROM sys.dm_exec_query_stats AS qs
     CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) AS st
     CROSS APPLY sys.dm_exec_query_plan(qs.plan_handle) AS qp
     WHERE st.text NOT LIKE '%sys.dm_exec_query_stats%'
       AND st.text NOT LIKE '%SELECT @@VERSION%'
+      AND st.text NOT LIKE '%PERFORMANCE_QUERY%'
+      AND st.text NOT LIKE '%sp_reset_connection%'
+      AND execution_count > 0
+      AND total_elapsed_time > 0
+      AND LEN(LTRIM(RTRIM(st.text))) > 10
     ORDER BY total_elapsed_time DESC;
     """
 
