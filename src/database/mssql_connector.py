@@ -19,6 +19,7 @@ class MSSQLConnector:
                         config.get_db_connection_string(),
                         autocommit=True
                     )
+                    print(config.get_db_connection_string())
                     print("Connection successful")
                 except pyodbc.Error as initial_error:
                     # Check if there's a driver issue
