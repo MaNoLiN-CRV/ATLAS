@@ -1,6 +1,7 @@
 import logging
 from typing import List, Optional
 from src.common import PerformanceDataDict, RawPerformanceData
+from src.database import MSSQLConnector
 
 class PerformanceCollector:
     """A performance collector that gathers SQL Server performance metrics."""
@@ -25,8 +26,8 @@ class PerformanceCollector:
       AND st.text NOT LIKE '%SELECT @@VERSION%'
     ORDER BY total_elapsed_time DESC;
     """
-    
-    def __init__(self, connector):
+
+    def __init__(self, connector: MSSQLConnector):
         self.connector = connector
         self.logger = logging.getLogger(__name__)
         self._is_started = False

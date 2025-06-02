@@ -35,3 +35,9 @@ class MSSQLConnector:
         if self.connection is not None:
             raise ValueError("Connection already initialized. Close the existing connection before re-initializing.")
         return result
+    
+    def get_connection(self):
+        """Returns the current database connection."""
+        if self.connection is None:
+            raise RuntimeError("Connection not established. Call connect() first.")
+        return self.connection
