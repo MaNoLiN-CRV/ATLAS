@@ -16,6 +16,11 @@ The Atlas configuration manager handles all application settings by reading from
    USERNAME=your_database_username  
    PASSWORD=your_database_password
    PORT=1433
+   DATABASE=your_database_name
+   
+   # ODBC Driver Configuration
+   # Choose the appropriate driver for your system
+   ODBC_DRIVER=ODBC Driver 17 for SQL Server
    
    # Collection interval in seconds
    COLLECTION_LAPSE=60
@@ -66,6 +71,8 @@ config.reload_config()
 | `USERNAME` | Database username | - | Yes |
 | `PASSWORD` | Database password | - | Yes |
 | `PORT` | Database port | 1433 | No |
+| `DATABASE` | Database name | - | Yes |
+| `ODBC_DRIVER` | ODBC Driver name | ODBC Driver 17 for SQL Server | No |
 | `COLLECTION_LAPSE` | Data collection interval (seconds) | 60 | No |
 
 ## Security

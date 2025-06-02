@@ -29,23 +29,31 @@ class Core:
         self.gui_adapter = GUIAdapter()
         
         # Subscribe to analyzer notifications
-        self.analyzer.subscribe_to_updates(self._on_new_data)
+        self.sqlite_repository.add_observer(self._on_new_data)
         
         # Threading attributes
         self._collection_thread = None
         self._stop_collection = threading.Event()
-        self._collection_interval = self.config.get('COLLECTION_LAPSE', 30)
+        self._collection_interval = self.config.get_collection_lapse()
 
     def _initialize_database(self, connector: MSSQLConnector):
         """Initialize database connections."""
-        connector.connect(self.config)
+        try:
+            connector.connect(self.config)
+            if not connector.test_connection():
+                print("WARNING: SQL Server connection test failed.")
+                print("The application will continue but data collection may not work.")
+        except Exception as e:
+            print(f"WARNING: Failed to initialize database connection: {e}")
+            print("The application will continue but data collection may not work.")
     
     def _on_new_data(self, new_data):
         """Observer callback for new data from analyzer."""
         try:
             # Update GUI adapter with new data
-            self.gui_adapter.add_new_data([new_data])
-            print(f"GUI updated with new performance data")
+            # new_data is already a list of CustomMetrics
+            self.gui_adapter.add_new_data(new_data)
+            print(f"GUI updated with {len(new_data)} new performance data items")
         except Exception as e:
             print(f"Error updating GUI: {e}")
     
@@ -86,13 +94,17 @@ class Core:
                 # Collect data from database
                 collected_data = self.collector.collect()
                 
-                if collected_data:
+                if collected_data and collected_data.get_data():
                     # Pass data to analyzer for processing
                     self.analyzer.process_data(collected_data)
                     print(f"Collected and analyzed {len(collected_data.get_data())} performance records")
+                else:
+                    print("No new performance data collected in this cycle")
                 
             except Exception as e:
                 print(f"Error in data collection worker: {e}")
+                import traceback
+                traceback.print_exc()
             
             # Wait for the specified interval or until stop signal
             self._stop_collection.wait(self._collection_interval)

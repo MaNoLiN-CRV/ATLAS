@@ -127,16 +127,12 @@ class SQLiteRepository:
                 
                 for metric in metrics:
                     # Extract data from the CustomMetrics
-                    raw_data = metric['value']
+                    raw_data = metric['value']  # This is now a dict containing a single performance data item
                     timestamp = metric['timestamp']
                     
-                    # Get the first item from raw_data (assuming single item per metric)
-                    data_items = raw_data.get_data()
-                    if not data_items:
-                        continue
-                        
-                    for item in data_items:
-                        cursor.execute("""
+                    # Process the raw_data item directly
+                    item = raw_data  # raw_data is already the item dictionary
+                    cursor.execute("""
                             INSERT INTO custom_metrics (
                                 timestamp, total_elapsed_time_ms, total_cpu_time_ms,
                                 total_logical_reads, total_physical_reads, execution_count,
@@ -212,10 +208,11 @@ class SQLiteRepository:
                         'query_plan': row[11]
                     }
                     
-                    metric = CustomMetrics(
-                        value=RawPerformanceData([performance_data]),
-                        timestamp=datetime.fromisoformat(row[0])
-                    )
+                    # Create CustomMetrics as a dictionary rather than using class constructor
+                    metric = {
+                        'value': performance_data,  # Direct dict instead of RawPerformanceData
+                        'timestamp': datetime.fromisoformat(row[0])
+                    }
                     metrics.append(metric)
                 
                 self.logger.info(f"Retrieved {len(metrics)} metrics from database")

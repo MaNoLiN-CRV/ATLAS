@@ -17,11 +17,10 @@ class GUIAdapter:
         """Load initial data for GUI display."""
         self.data_cache = []
         for metric in data:
-            if hasattr(metric, 'value') and isinstance(metric.value, RawPerformanceData):
-                for record in metric.value.get_data():
-                    record_dict = dict(record)
-                    record_dict['metric_timestamp'] = metric.timestamp
-                    self.data_cache.append(record_dict)
+            if isinstance(metric, dict) and 'value' in metric and 'timestamp' in metric:
+                record_dict = dict(metric['value'])
+                record_dict['metric_timestamp'] = metric['timestamp']
+                self.data_cache.append(record_dict)
         
         self.last_update = datetime.now()
         self._notify_subscribers()
@@ -29,11 +28,10 @@ class GUIAdapter:
     def add_new_data(self, new_data: List[CustomMetrics]) -> None:
         """Add new data to existing cache without full reload."""
         for metric in new_data:
-            if hasattr(metric, 'value') and isinstance(metric.value, RawPerformanceData):
-                for record in metric.value.get_data():
-                    record_dict = dict(record)
-                    record_dict['metric_timestamp'] = metric.timestamp
-                    self.data_cache.append(record_dict)
+            if isinstance(metric, dict) and 'value' in metric and 'timestamp' in metric:
+                record_dict = dict(metric['value'])
+                record_dict['metric_timestamp'] = metric['timestamp']
+                self.data_cache.append(record_dict)
         
         self.last_update = datetime.now()
         self._notify_subscribers()

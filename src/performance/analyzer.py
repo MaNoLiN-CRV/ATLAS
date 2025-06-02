@@ -19,27 +19,21 @@ class PerformanceAnalyzer:
         customMetrics = self.analyze(raw_data)
         self.sqlite_repository.save_metrics(customMetrics)
         self.logger.info("Data processing completed")
+        
+    def get_all_metrics(self) -> List[CustomMetrics]:
+        """Retrieve all metrics from the SQLite repository."""
+        self.logger.info("Retrieving all metrics from repository")
+        return self.sqlite_repository.get_all_metrics()
 
     def analyze(self, raw_data: RawPerformanceData) -> List[CustomMetrics]:
         """Analyze the raw performance data and return custom metrics."""
         metrics = []
         for item in raw_data.get_data():
-            metric = CustomMetrics(
-                value=RawPerformanceData(
-                    total_elapsed_time_ms=item['total_elapsed_time_ms'],
-                    total_cpu_time_ms=item['total_cpu_time_ms'],
-                    total_logical_reads=item['total_logical_reads'],
-                    total_physical_reads=item['total_physical_reads'],
-                    execution_count=item['execution_count'],
-                    avg_elapsed_time_ms=item['avg_elapsed_time_ms'],
-                    avg_cpu_time_ms=item['avg_cpu_time_ms'],
-                    creation_time=item['creation_time'],
-                    last_execution_time=item['last_execution_time'],
-                    query_text=item['query_text'],
-                    query_plan=item['query_plan']
-                ),
-                timestamp=datetime.now()
-            )
+            # Create a CustomMetrics instance for each performance data item
+            metric = {
+                'value': item,  # Pass the original item as the value
+                'timestamp': datetime.now()
+            }
             metrics.append(metric)
         self.logger.info("Performance analysis completed")
         return metrics

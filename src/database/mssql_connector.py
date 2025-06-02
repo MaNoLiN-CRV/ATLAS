@@ -6,20 +6,45 @@ class MSSQLConnector:
     """A class to manage connections to a Microsoft SQL Server database using pyodbc."""
     def __init__(self):
         self.connection = None
-
-    """Initializes the MSSQLConnector with server, database, username, and password."""
-    def connect(self , config: ConfigManager):
+        self.config = None
+        
+    """Initializes the MSSQLConnector with configuration from ConfigManager."""
+    def connect(self, config: ConfigManager):
         try:
+            self.config = config
             if self.validate_initialization():
-                self.connection = pyodbc.connect(
-                    config.get_db_connection_string(),
-                    autocommit=True
-            )
-            print("Connection successful")
+                # Try to detect available drivers if connection fails
+                try:
+                    self.connection = pyodbc.connect(
+                        config.get_db_connection_string(),
+                        autocommit=True
+                    )
+                    print("Connection successful")
+                except pyodbc.Error as initial_error:
+                    # Check if there's a driver issue
+                    available_drivers = config.detect_odbc_drivers()
+                    if available_drivers:
+                        print(f"Available SQL Server drivers: {', '.join(available_drivers)}")
+                        print(f"Using first available driver: {available_drivers[0]}")
+                        
+                        # Try with the first available driver
+                        self.connection = pyodbc.connect(
+                            config.get_db_connection_string().replace(
+                                f"DRIVER={{{config.driver}}}", 
+                                f"DRIVER={{{available_drivers[0]}}}"
+                            ),
+                            autocommit=True
+                        )
+                        print("Connection successful with auto-detected driver")
+                    else:
+                        print(f"Error connecting to SQL Server: {initial_error}")
+                        raise
         except pyodbc.Error as e:
             print(f"Error connecting to SQL Server: {e}")
+            raise
         except Exception as e:
             print(f"An error occurred: {e}")
+            raise
 
     """Closes the connection to the SQL Server database."""
     def close(self):
@@ -30,8 +55,10 @@ class MSSQLConnector:
     """Validates the initialization parameters."""
     def validate_initialization(self):
         result = True
-        if not all([self.server, self.database, self.username, self.password]):
-            raise ValueError("All parameters (server, database, username, password) must be provided.")
+        if self.config is None:
+            raise ValueError("Configuration must be provided before connecting.")
+        if not self.config.validate_config():
+            raise ValueError("Database configuration is incomplete. Check your configuration.")
         if self.connection is not None:
             raise ValueError("Connection already initialized. Close the existing connection before re-initializing.")
         return result
@@ -40,4 +67,23 @@ class MSSQLConnector:
         """Returns the current database connection."""
         if self.connection is None:
             raise RuntimeError("Connection not established. Call connect() first.")
+            
         return self.connection
+
+    def test_connection(self) -> bool:
+        """Tests if the database connection is working.
+        
+        Returns:
+            True if connection is successful, False otherwise
+        """
+        if self.connection is None:
+            return False
+            
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+            return True
+        except Exception as e:
+            print(f"Connection test failed: {e}")
+            return False

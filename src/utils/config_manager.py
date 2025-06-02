@@ -27,6 +27,9 @@ class ConfigManager:
         self.username = os.getenv('USERNAME', '')
         self.password = os.getenv('PASSWORD', '')
         self.port = int(os.getenv('PORT', '1433'))  # Default SQL Server port
+        self.database = os.getenv('DATABASE', '')
+        # Get ODBC driver name - allow for different versions based on system
+        self.driver = os.getenv('ODBC_DRIVER', 'ODBC Driver 17 for SQL Server')
         
         # Collection configuration
         self.collection_lapse = int(os.getenv('COLLECTION_LAPSE', '60'))  # Default 60 seconds
@@ -38,8 +41,9 @@ class ConfigManager:
         Returns:
             Database connection string for SQL Server
         """
-        return (f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+        return (f"DRIVER={{{self.driver}}};"
                 f"SERVER={self.db_host},{self.port};"
+                f"DATABASE={self.database};"
                 f"UID={self.username};"
                 f"PWD={self.password};")
     
@@ -73,7 +77,7 @@ class ConfigManager:
         Returns:
             True if configuration is valid, False otherwise
         """
-        required_fields = [self.db_host, self.username, self.password]
+        required_fields = [self.db_host, self.username, self.password, self.database]
         return all(field for field in required_fields)
     
     def reload_config(self, env_file_path: Optional[str] = None):
@@ -97,6 +101,20 @@ class ConfigManager:
             'collection_lapse': self.collection_lapse,
             'valid': self.validate_config()
         }
+    
+    def detect_odbc_drivers(self) -> list:
+        """
+        Detects available ODBC drivers for SQL Server
+        
+        Returns:
+            List of available SQL Server ODBC driver names
+        """
+        try:
+            import pyodbc
+            drivers = [driver for driver in pyodbc.drivers() if 'SQL Server' in driver]
+            return drivers
+        except Exception:
+            return []
     
     def __str__(self) -> str:
         """String representation of config (without sensitive data)"""

@@ -53,8 +53,16 @@ class PerformanceDataDict(TypedDict):
 
 
 class RawPerformanceData:
-    def __init__(self, data: List[PerformanceDataDict]):
-        self.data = data
+    def __init__(self, data=None, **kwargs):
+        if data is not None:
+            # Ensure data is a list
+            if isinstance(data, list):
+                self.data = data
+            else:
+                self.data = [data]
+        else:
+            # Allow direct attribute initialization
+            self.data = [kwargs] if kwargs else []
 
     def get_data(self) -> List[PerformanceDataDict]:
         """Returns the raw performance data."""
@@ -88,5 +96,5 @@ class RawPerformanceData:
 
 class CustomMetrics(TypedDict):
     """Type definition for custom metrics."""
-    value = RawPerformanceData
+    value: dict  # Raw performance data as a dictionary (not the full RawPerformanceData object)
     timestamp: datetime
