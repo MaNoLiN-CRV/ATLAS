@@ -8,5 +8,5 @@ This module contains utility functions and configuration management.
 # from .config_manager import ConfigManager
 
 __all__ = [
-    # 'ConfigManager'
+'ConfigManager',
 ]

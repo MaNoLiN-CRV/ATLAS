@@ -1,24 +1,19 @@
 import pyodbc
 
+from src.utils.config_manager import ConfigManager
+
 class MSSQLConnector:
     """A class to manage connections to a Microsoft SQL Server database using pyodbc."""
-    def __init__(self, server, database, username, password):
-        self.server = server
-        self.database = database
-        self.username = username
-        self.password = password
+    def __init__(self):
         self.connection = None
 
     """Initializes the MSSQLConnector with server, database, username, and password."""
-    def connect(self):
+    def connect(self , config: ConfigManager):
         try:
             if self.validate_initialization():
                 self.connection = pyodbc.connect(
-                f'DRIVER={{ODBC Driver 17 for SQL Server}};'
-                f'SERVER={self.server};'
-                f'DATABASE={self.database};'
-                f'UID={self.username};'
-                f'PWD={self.password}'
+                    config.get_db_connection_string(),
+                    autocommit=True
             )
             print("Connection successful")
         except pyodbc.Error as e:
