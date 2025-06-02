@@ -3,6 +3,9 @@ from datetime import datetime
 from typing import TypedDict, List, Union, Optional
 from decimal import Decimal
 
+
+# Performance data models used in the collector module.
+
 class PerformanceDataDict(TypedDict):
     """Type definition for performance data JSON structure."""
     total_elapsed_time_ms: int
@@ -48,3 +51,12 @@ class RawPerformanceData:
             if 'last_execution_time' in item:
                 item['last_execution_time'] = datetime.fromisoformat(item['last_execution_time'])
         return cls(data)
+
+# ///////////////////////////////////////////////
+
+# Data analyzer models used in the analyzer module.
+
+class CustomMetrics(TypedDict):
+    """Type definition for custom metrics."""
+    value = RawPerformanceData
+    timestamp: datetime
