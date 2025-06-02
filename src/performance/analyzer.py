@@ -3,19 +3,21 @@ from datetime import datetime
 import logging
 from typing import List
 from src.common.models import CustomMetrics, RawPerformanceData
+from src.database.sqlite_repository import SQLiteRepository
 
 
 class PerformanceAnalyzer:
     """A class to analyze performance data."""
 
-    def __init__(self):
+    def __init__(self , sqlite_repository : SQLiteRepository):
         self.logger = logging.getLogger(__name__)
+        self.sqlite_repository = sqlite_repository
 
     def process_data(self, raw_data: RawPerformanceData) -> None:
         """Process the raw performance data and sends it to the sqlite repository."""
         self.logger.info("Processing raw performance data")
         customMetrics = self.analyze(raw_data)
-        
+        self.sqlite_repository.save_metrics(customMetrics)
         self.logger.info("Data processing completed")
 
     def analyze(self, raw_data: RawPerformanceData) -> List[CustomMetrics]:
