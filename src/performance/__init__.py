@@ -6,8 +6,10 @@ This module contains components for collecting and analyzing database performanc
 
 from .collector import PerformanceCollector
 from .analyzer import PerformanceAnalyzer
+from .performance_thresholds import PerformanceThresholds
 
 __all__ = [
     'PerformanceCollector',
-    'PerformanceAnalyzer'
+    'PerformanceAnalyzer',
+    'PerformanceThresholds'
 ]

@@ -7,7 +7,7 @@ class PerformanceCollector:
     """A performance collector that gathers SQL Server performance metrics."""
     
     PERFORMANCE_QUERY = """
-    SELECT TOP 100
+    SELECT TOP 50
         -- Basic timing metrics
         total_elapsed_time / 1000 AS total_elapsed_time_ms,
         total_worker_time / 1000 AS total_cpu_time_ms,
@@ -33,7 +33,7 @@ class PerformanceCollector:
         
         -- Query information
         st.text AS query_text,
-        CAST(qp.query_plan AS NVARCHAR(MAX)) AS query_plan,
+        CAST(ISNULL(qp.query_plan, '') AS NVARCHAR(MAX)) AS query_plan,
         
         -- Min/Max metrics
         min_elapsed_time / 1000 AS min_elapsed_time_ms,
@@ -94,15 +94,37 @@ class PerformanceCollector:
         
     FROM sys.dm_exec_query_stats AS qs
     CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) AS st
-    CROSS APPLY sys.dm_exec_query_plan(qs.plan_handle) AS qp
+    OUTER APPLY sys.dm_exec_query_plan(qs.plan_handle) AS qp
     WHERE st.text NOT LIKE '%sys.dm_exec_query_stats%'
       AND st.text NOT LIKE '%SELECT @@VERSION%'
       AND st.text NOT LIKE '%PERFORMANCE_QUERY%'
       AND st.text NOT LIKE '%sp_reset_connection%'
+      AND st.text NOT LIKE '%BACKUP%'
+      AND st.text NOT LIKE '%RESTORE%'
+      AND st.text NOT LIKE '%CHECKPOINT%'
+      AND st.text NOT LIKE '%DBCC%'
       AND execution_count > 0
       AND total_elapsed_time > 0
       AND LEN(LTRIM(RTRIM(st.text))) > 10
-    ORDER BY total_elapsed_time DESC;
+      -- Filter for problematic queries only:
+      AND (
+          -- High average execution time (> 1000ms)
+          (total_elapsed_time / 1000.0) / execution_count > 1000
+          -- OR high total execution time (> 30 seconds total)
+          OR total_elapsed_time / 1000 > 30000
+          -- OR high logical reads per execution (> 10000)
+          OR total_logical_reads / CAST(execution_count AS DECIMAL(18,2)) > 10000
+          -- OR high physical reads per execution (> 1000)
+          OR total_physical_reads / CAST(execution_count AS DECIMAL(18,2)) > 1000
+          -- OR queries with spills (indicates memory pressure)
+          OR ISNULL(total_spills, 0) > 0
+          -- OR queries with high CPU usage (> 5000ms average)
+          OR (total_worker_time / 1000.0) / execution_count > 5000
+      )
+    ORDER BY 
+        -- Prioritize by multiple criteria for worst queries
+        (total_elapsed_time / 1000.0) / execution_count DESC,
+        total_elapsed_time DESC;
     """
 
     def __init__(self, connector: MSSQLConnector):

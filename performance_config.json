@@ -1,0 +1,19 @@
+{
+  "thresholds": {
+    "max_avg_elapsed_time_ms": 1000.0,
+    "max_total_elapsed_time_ms": 30000.0,
+    "max_avg_cpu_time_ms": 5000.0,
+    "max_avg_logical_reads": 10000.0,
+    "max_avg_physical_reads": 1000.0,
+    "max_total_logical_reads": 1000000,
+    "min_spills_to_capture": 1,
+    "max_avg_grant_kb": 50000.0,
+    "min_execution_count": 1,
+    "max_execution_count_for_slow_queries": 10,
+    "min_buffer_hit_ratio": 80.0,
+    "min_cpu_efficiency_ratio": 50.0,
+    "max_stored_queries_per_collection": 50
+  },
+  "description": "Atlas Performance Filtering Configuration",
+  "version": "1.0"
+}
