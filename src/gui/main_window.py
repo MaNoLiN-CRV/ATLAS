@@ -169,7 +169,7 @@ class MainWindow:
         elif selected == "Query Details":
             self._render_query_details()
         elif selected == "Atlas Metrics":
-            self._render_atlas_metrics()
+            self._render_system_metrics()
     
     def get_base64_of_image(self, path):
         """Convert image to base64 for better quality control."""
