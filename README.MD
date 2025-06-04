@@ -83,7 +83,7 @@ sudo ACCEPT_EULA=Y apt-get install -y msodbcsql17
 
 Run the application with GUI (default):
 ```bash
-python main.py
+streamlit python main.py
 ```
 
 Run in command-line mode (without GUI):
