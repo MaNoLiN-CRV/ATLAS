@@ -12,19 +12,14 @@ class PerformanceMetricCard:
     @staticmethod
     def render(title: str, value: str, delta: Optional[str] = None, 
                help_text: Optional[str] = None, color: str = "#6366f1"):
-        """Render a custom metric card."""
-        delta_html = f'<div class="metric-delta" style="color: {color};">{delta}</div>' if delta else ""
-        help_html = f'<small style="color: #9ca3af;">{help_text}</small>' if help_text else ""
-        
-        card_html = f"""
-        <div class="metric-card">
-            <div class="metric-title">{title}</div>
-            <div class="metric-value">{value}</div>
-            {delta_html}
-            {help_html}
-        </div>
-        """
-        st.markdown(card_html, unsafe_allow_html=True)
+        """Render a custom metric card using Streamlit's native metric component."""
+        # Use Streamlit's native metric component which handles styling better
+        st.metric(
+            label=title,
+            value=value,
+            delta=delta,
+            help=help_text
+        )
 
 
 class QueryPerformanceChart:
