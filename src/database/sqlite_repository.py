@@ -4,6 +4,8 @@ import logging
 from datetime import datetime
 from typing import List, Optional, Callable
 from pathlib import Path
+
+from src.utils.data_compressor import compress_data, decompress_data
 from ..common.models import CustomMetrics, RawPerformanceData
 
 # Resume of the methods:
@@ -56,8 +58,8 @@ class SQLiteRepository:
                         avg_logical_writes REAL NOT NULL,
                         creation_time TEXT NOT NULL,
                         last_execution_time TEXT NOT NULL,
-                        query_text TEXT NOT NULL,
-                        query_plan TEXT,
+                        query_text BLOB NOT NULL,
+                        query_plan BLOB,
                         min_elapsed_time_ms INTEGER NOT NULL,
                         max_elapsed_time_ms INTEGER NOT NULL,
                         min_cpu_time_ms INTEGER NOT NULL,
@@ -194,8 +196,8 @@ class SQLiteRepository:
                             float(item['avg_logical_writes']),
                             item['creation_time'].isoformat(),
                             item['last_execution_time'].isoformat(),
-                            item['query_text'],
-                            item.get('query_plan', ''),
+                            compress_data(item['query_text'].encode('utf-8')), # HIGH STORAGE SIZE
+                            compress_data(item.get('query_plan', '').encode('utf-8')), # HIGH STORAGE SIZE
                             item['min_elapsed_time_ms'],
                             item['max_elapsed_time_ms'],
                             item['min_cpu_time_ms'],
@@ -287,8 +289,8 @@ class SQLiteRepository:
                         'avg_logical_writes': row[11],
                         'creation_time': datetime.fromisoformat(row[12]),
                         'last_execution_time': datetime.fromisoformat(row[13]),
-                        'query_text': row[14],
-                        'query_plan': row[15] if row[15] is not None else '',
+                        'query_text': decompress_data(row[14]).decode('utf-8'), # DATA DECOMPRESSION
+                        'query_plan': decompress_data(row[15]).decode('utf-8') if row[15] is not None else '', # DATA DECOMPRESSION
                         'min_elapsed_time_ms': row[16],
                         'max_elapsed_time_ms': row[17],
                         'min_cpu_time_ms': row[18],
@@ -390,8 +392,8 @@ class SQLiteRepository:
                         'avg_logical_writes': row[11],
                         'creation_time': datetime.fromisoformat(row[12]),
                         'last_execution_time': datetime.fromisoformat(row[13]),
-                        'query_text': row[14],
-                        'query_plan': row[15] if row[15] is not None else '',
+                        'query_text': decompress_data(row[14]).decode('utf-8'),
+                        'query_plan': decompress_data(row[15]).decode('utf-8') if row[15] is not None else '',
                         'min_elapsed_time_ms': row[16],
                         'max_elapsed_time_ms': row[17],
                         'min_cpu_time_ms': row[18],
@@ -486,8 +488,8 @@ class SQLiteRepository:
                         'avg_cpu_time_ms': row[7],
                         'creation_time': datetime.fromisoformat(row[8]),
                         'last_execution_time': datetime.fromisoformat(row[9]),
-                        'query_text': row[10],
-                        'query_plan': row[11] if row[11] is not None else ''
+                        'query_text': decompress_data(row[10]).decode('utf-8'),
+                        'query_plan': decompress_data(row[11]).decode('utf-8') if row[11] is not None else ''
                     }
                     
                     metric = CustomMetrics(
