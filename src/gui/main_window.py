@@ -122,7 +122,7 @@ class MainWindow:
         
         # Sidebar navigation
         with st.sidebar:
-            st.image("https://via.placeholder.com/200x60/6366f1/ffffff?text=ATLAS", width=200)
+            st.image("atlas.jpg", width=200)
             st.markdown("---")
             
             selected = option_menu(
