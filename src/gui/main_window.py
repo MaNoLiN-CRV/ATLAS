@@ -8,6 +8,7 @@ from typing import Optional
 import numpy as np
 from streamlit_option_menu import option_menu
 from streamlit_autorefresh import st_autorefresh
+import base64
 
 from .gui_adapter import GUIAdapter
 
@@ -122,7 +123,11 @@ class MainWindow:
         
         # Sidebar navigation
         with st.sidebar:
-            st.image("atlas.jpg", width=200)
+            st.markdown("""
+                    <div style="text-align: center;">
+                    <img src="data:image/jpeg;base64,{}" style="width: 200px; height: auto; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;">
+                    </div>
+                    """.format(self.get_base64_of_image("atlas.jpg")), unsafe_allow_html=True)
             st.markdown("---")
             
             selected = option_menu(
@@ -163,6 +168,14 @@ class MainWindow:
             self._render_system_metrics()
         elif selected == "Query Details":
             self._render_query_details()
+    
+    def get_base64_of_image(self, path):
+        """Convert image to base64 for better quality control."""
+        try:
+            with open(path, "rb") as img_file:
+                return base64.b64encode(img_file.read()).decode()
+        except FileNotFoundError:
+            return ""
     
     def _render_sidebar_stats(self):
         """Render sidebar statistics."""
