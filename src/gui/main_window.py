@@ -619,7 +619,9 @@ class MainWindow:
                 st.code(row['query_text'], language='sql')
                 
                 if 'query_plan' in row and row['query_plan']:
-                    with st.expander("📋 Query Plan"):
+                    show_plan = st.checkbox(f"📋 Show Query Plan", key=f"plan_{idx}")
+                    if show_plan:
+                        st.subheader("Query Plan")
                         st.text(row['query_plan'])
 
 
