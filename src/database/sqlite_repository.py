@@ -289,8 +289,8 @@ class SQLiteRepository:
                         'avg_logical_writes': row[11],
                         'creation_time': datetime.fromisoformat(row[12]),
                         'last_execution_time': datetime.fromisoformat(row[13]),
-                        'query_text': decompress_data(row[14]).decode('utf-8'), # DATA DECOMPRESSION
-                        'query_plan': decompress_data(row[15]).decode('utf-8') if row[15] is not None else '', # DATA DECOMPRESSION
+                        'query_text': str(decompress_data(row[14])).decode('utf-8'), # DATA DECOMPRESSION
+                        'query_plan': str(decompress_data(row[15])).decode('utf-8') if row[15] is not None else '', # DATA DECOMPRESSION
                         'min_elapsed_time_ms': row[16],
                         'max_elapsed_time_ms': row[17],
                         'min_cpu_time_ms': row[18],
