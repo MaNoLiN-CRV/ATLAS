@@ -12,7 +12,8 @@ from .widgets import (
     PerformanceAlerts,
     QueryOptimizationSuggestions,
     DataExportWidget,
-    RealTimeMonitor
+    RealTimeMonitor,
+    MemoryMonitor
 )
 
 __all__ = [
@@ -24,5 +25,6 @@ __all__ = [
     'PerformanceAlerts',
     'QueryOptimizationSuggestions',
     'DataExportWidget',
-    'RealTimeMonitor'
+    'RealTimeMonitor',
+    'MemoryMonitor'
 ]

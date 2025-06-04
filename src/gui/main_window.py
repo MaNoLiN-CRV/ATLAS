@@ -176,7 +176,7 @@ class MainWindow:
         elif selected == "Query Details":
             self._render_query_details()
         elif selected == "Atlas Metrics":
-            self._render_system_metrics()
+            self._render_atlas_metrics()
     
     def get_base64_of_image(self, path):
         """Convert image to base64 for better quality control."""
@@ -201,6 +201,29 @@ class MainWindow:
             with col2:
                 st.metric("Total Executions", f"{stats.get('total_executions', 0):,}")
                 st.metric("Avg CPU Time", f"{stats.get('avg_cpu_time', 0):.2f}ms")
+            
+            # Memory usage section
+            st.markdown("### 💾 Atlas Memory Usage")
+            st.markdown("*Program memory consumption*")
+            
+            col3, col4 = st.columns(2)
+            with col3:
+                memory_mb = stats.get('memory_usage_mb', 0)
+                memory_percent = stats.get('memory_percent', 0)
+                st.metric(
+                    "Physical Memory", 
+                    f"{memory_mb:.1f} MB",
+                    delta=f"{memory_percent:.1f}%" if memory_percent > 0 else None
+                )
+            
+            with col4:
+                cache_mb = stats.get('cache_memory_mb', 0)
+                cache_records = stats.get('cache_records', 0)
+                st.metric(
+                    "Cache Memory", 
+                    f"{cache_mb:.1f} MB",
+                    delta=f"{cache_records:,} records" if cache_records > 0 else None
+                )
             
             if stats.get('last_collection'):
                 st.markdown(f"**Last Update:** {stats['last_collection'].strftime('%H:%M:%S')}")
@@ -513,16 +536,31 @@ class MainWindow:
         """Render system-level metrics."""
         st.title("🖥️ System Metrics")
         
+        # Import MemoryMonitor widget
+        from .widgets import MemoryMonitor
+        
+        # Prominent memory monitoring section at the top
+        st.header("💾 Atlas Program Memory Usage")
+        st.markdown("This section shows the memory consumption of the Atlas monitoring application itself.")
+        
+        # Memory monitoring dashboard - this shows the program's memory usage
+        MemoryMonitor.render_full_memory_dashboard(self.adapter)
+        
+        st.markdown("---")
+        
+        # Database performance metrics section
         df = self.adapter.get_dataframe()
         if df.empty:
-            st.warning("No system metrics available.")
+            st.warning("No database performance metrics available.")
             return
         
-        # Memory and threading metrics
+        st.header("🗄️ Database Performance Metrics")
+        
+        # SQL Server Memory and threading metrics
         col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("💾 Memory Usage")
+            st.subheader("💾 SQL Memory Grants")
             if 'avg_grant_kb' in df.columns:
                 fig = px.box(df, y='avg_grant_kb', title="Memory Grant Distribution (KB)")
                 fig.update_layout(
@@ -623,6 +661,162 @@ class MainWindow:
                     if show_plan:
                         st.subheader("Query Plan")
                         st.text(row['query_plan'])
+    
+    def _render_atlas_metrics(self):
+        """Render Atlas application-specific metrics."""
+        st.title("⚙️ Atlas Application Metrics")
+        
+        # Import MemoryMonitor widget
+        from .widgets import MemoryMonitor
+        
+        # Atlas overview section
+        st.header("📊 Atlas System Overview")
+        st.markdown("""
+        <div style="background: linear-gradient(145deg, #2a2a3e 0%, #1f1f32 100%); 
+                    padding: 1.5rem; border-radius: 10px; border: 1px solid #3a3a54; margin: 10px 0;">
+            <h4 style="color: #a78bfa; margin-top: 0;">🎯 Atlas Performance Monitoring</h4>
+            <p style="color: #e1e1e6; margin: 0;">
+                Monitor the performance and resource usage of the Atlas application itself. 
+                This section provides insights into memory consumption, cache efficiency, 
+                and system resource utilization by the monitoring system.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Get current stats
+        stats = self.adapter.get_summary_stats()
+        memory_stats = self.adapter.get_memory_stats()
+        
+        # Key Atlas metrics
+        st.subheader("🚀 Application Performance")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            from .widgets import PerformanceMetricCard
+            PerformanceMetricCard.render(
+                "Data Records",
+                f"{stats.get('cache_records', 0):,}",
+                delta=f"Total: {stats.get('total_queries', 0):,}",
+                help_text="Records in memory cache",
+                color="#6366f1"
+            )
+        
+        with col2:
+            last_update = stats.get('last_collection')
+            if last_update:
+                time_str = last_update.strftime('%H:%M:%S')
+                delta_str = "Active"
+            else:
+                time_str = "No Data"
+                delta_str = "Inactive"
+            
+            PerformanceMetricCard.render(
+                "Last Collection",
+                time_str,
+                delta=delta_str,
+                help_text="Most recent data collection",
+                color="#10b981" if last_update else "#ef4444"
+            )
+        
+        with col3:
+            cache_efficiency = 0
+            if stats.get('cache_records', 0) > 0 and stats.get('total_queries', 0) > 0:
+                cache_efficiency = (stats.get('cache_records', 0) / stats.get('total_queries', 0)) * 100
+            
+            PerformanceMetricCard.render(
+                "Cache Efficiency",
+                f"{cache_efficiency:.1f}%",
+                help_text="Percentage of queries cached",
+                color="#f59e0b" if cache_efficiency < 50 else "#10b981"
+            )
+        
+        with col4:
+            avg_record_size = memory_stats.get('avg_record_size_kb', 0)
+            PerformanceMetricCard.render(
+                "Avg Record Size",
+                f"{avg_record_size:.2f} KB",
+                help_text="Memory per cached record",
+                color="#8b5cf6"
+            )
+        
+        st.markdown("---")
+        
+        # Memory monitoring section - full dashboard
+        MemoryMonitor.render_full_memory_dashboard(self.adapter)
+        
+        st.markdown("---")
+        
+        # Atlas performance insights
+        st.header("🔍 Performance Insights")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("📈 Data Collection Trends")
+            
+            # Show data collection efficiency
+            if stats.get('total_queries', 0) > 0:
+                st.markdown(f"""
+                **Collection Summary:**
+                - Total Queries Processed: `{stats.get('total_queries', 0):,}`
+                - Currently Cached: `{stats.get('cache_records', 0):,}`
+                - Average Query Performance: `{stats.get('avg_response_time', 0):.2f}ms`
+                - Total Executions Tracked: `{stats.get('total_executions', 0):,}`
+                """)
+            else:
+                st.info("No data collection statistics available.")
+        
+        with col2:
+            st.subheader("💡 System Recommendations")
+            
+            # Provide recommendations based on current metrics
+            recommendations = []
+            
+            memory_mb = memory_stats.get('rss_mb', 0)
+            cache_mb = memory_stats.get('cache_memory_mb', 0)
+            cache_records = memory_stats.get('cache_records', 0)
+            
+            if memory_mb > 500:
+                recommendations.append("🔴 High memory usage detected. Consider optimizing memory.")
+            elif memory_mb > 200:
+                recommendations.append("🟡 Moderate memory usage. Monitor for increases.")
+            else:
+                recommendations.append("🟢 Memory usage is within normal range.")
+            
+            if cache_records > 10000:
+                recommendations.append("🔴 Large cache size. Consider clearing old data.")
+            elif cache_records > 5000:
+                recommendations.append("🟡 Growing cache size. Monitor for performance impact.")
+            else:
+                recommendations.append("🟢 Cache size is manageable.")
+            
+            if avg_record_size > 5:
+                recommendations.append("🔴 Large average record size. Check for memory optimization opportunities.")
+            elif avg_record_size > 2:
+                recommendations.append("🟡 Moderate record size. Monitor for optimization opportunities.")
+            else:
+                recommendations.append("🟢 Efficient record size.")
+            
+            for rec in recommendations:
+                st.markdown(f"- {rec}")
+        
+        # Monitoring status
+        st.markdown("---")
+        st.subheader("🔧 Monitoring Status")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            monitoring_status = "🟢 Active" if self.adapter._memory_monitoring else "🔴 Inactive"
+            st.markdown(f"**Memory Monitoring:** {monitoring_status}")
+        
+        with col2:
+            data_status = "🟢 Connected" if stats.get('total_queries', 0) > 0 else "🔴 No Data"
+            st.markdown(f"**Data Collection:** {data_status}")
+        
+        with col3:
+            cache_status = "🟢 Healthy" if cache_records < 10000 else "🟡 Large" if cache_records < 20000 else "🔴 Critical"
+            st.markdown(f"**Cache Status:** {cache_status}")
 
 
 def create_gui(adapter: GUIAdapter) -> MainWindow:

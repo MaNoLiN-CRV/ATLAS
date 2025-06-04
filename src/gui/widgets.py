@@ -389,3 +389,179 @@ class RealTimeMonitor:
             )
             
             st.plotly_chart(fig, use_container_width=True)
+
+
+class MemoryMonitor:
+    """Widget for displaying memory usage and trends."""
+    
+    @staticmethod
+    def render_memory_stats(adapter):
+        """Render current memory statistics."""
+        memory_stats = adapter.get_memory_stats()
+        
+        if not memory_stats:
+            st.warning("Memory statistics not available")
+            return
+        
+        st.markdown("### 💾 Current Memory Usage")
+        st.markdown("*Live memory consumption of the Atlas monitoring program*")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            PerformanceMetricCard.render(
+                "Physical Memory",
+                f"{memory_stats.get('rss_mb', 0):.1f} MB",
+                delta=f"{memory_stats.get('memory_percent', 0):.1f}%",
+                help_text="Physical memory usage",
+                color="#6366f1"
+            )
+        
+        with col2:
+            PerformanceMetricCard.render(
+                "Virtual Memory",
+                f"{memory_stats.get('vms_mb', 0):.1f} MB",
+                help_text="Virtual memory usage",
+                color="#8b5cf6"
+            )
+        
+        with col3:
+            PerformanceMetricCard.render(
+                "Cache Memory",
+                f"{memory_stats.get('cache_memory_mb', 0):.1f} MB",
+                delta=f"{memory_stats.get('cache_records', 0):,} records",
+                help_text="Data cache memory usage",
+                color="#10b981"
+            )
+        
+        with col4:
+            avg_record_size = memory_stats.get('avg_record_size_kb', 0)
+            PerformanceMetricCard.render(
+                "Avg Record Size",
+                f"{avg_record_size:.2f} KB",
+                help_text="Average memory per record",
+                color="#f59e0b"
+            )
+    
+    @staticmethod
+    def render_memory_trends(adapter):
+        """Render memory usage trends over time."""
+        memory_history = adapter.get_memory_history()
+        
+        if memory_history.empty:
+            st.info("No memory history available. Enable memory monitoring to see trends.")
+            return
+        
+        st.markdown("### 📈 Memory Trends")
+        
+        fig = go.Figure()
+        
+        # Physical memory trend
+        fig.add_trace(go.Scatter(
+            x=memory_history['timestamp'],
+            y=memory_history['rss_mb'],
+            mode='lines+markers',
+            name='Physical Memory (MB)',
+            line=dict(color='#6366f1', width=2),
+            yaxis='y'
+        ))
+        
+        # Cache memory trend
+        fig.add_trace(go.Scatter(
+            x=memory_history['timestamp'],
+            y=memory_history['cache_memory_mb'],
+            mode='lines+markers',
+            name='Cache Memory (MB)',
+            line=dict(color='#10b981', width=2),
+            yaxis='y'
+        ))
+        
+        # Record count trend (on secondary y-axis)
+        fig.add_trace(go.Scatter(
+            x=memory_history['timestamp'],
+            y=memory_history['cache_records'],
+            mode='lines+markers',
+            name='Cache Records',
+            line=dict(color='#f59e0b', width=2, dash='dash'),
+            yaxis='y2'
+        ))
+        
+        fig.update_layout(
+            title="Memory Usage Trends",
+            xaxis_title="Time",
+            yaxis=dict(
+                title="Memory (MB)",
+                side="left",
+                color='#e1e1e6'
+            ),
+            yaxis2=dict(
+                title="Record Count",
+                side="right",
+                overlaying="y",
+                color='#f59e0b'
+            ),
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font_color='#e1e1e6',
+            title_font_color='#e1e1e6',
+            height=400,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            )
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    @staticmethod
+    def render_memory_controls(adapter):
+        """Render memory management controls."""
+        st.markdown("### ⚙️ Memory Management")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("🔄 Optimize Memory", help="Run garbage collection and remove duplicates"):
+                with st.spinner("Optimizing memory..."):
+                    result = adapter.optimize_memory()
+                    if result.get('removed_duplicates', 0) > 0:
+                        st.success(f"Removed {result['removed_duplicates']} duplicate records")
+                    if result.get('memory_saved_mb', 0) > 0:
+                        st.success(f"Saved {result['memory_saved_mb']:.1f} MB")
+                    else:
+                        st.info("Memory optimization completed")
+        
+        with col2:
+            if st.button("📊 Start Monitoring", help="Start continuous memory monitoring"):
+                adapter.start_memory_monitoring()
+                st.success("Memory monitoring started")
+        
+        with col3:
+            if st.button("⏹️ Stop Monitoring", help="Stop memory monitoring"):
+                adapter.stop_memory_monitoring()
+                st.info("Memory monitoring stopped")
+        
+        # Show current monitoring status
+        monitoring_status = "🟢 Active" if adapter._memory_monitoring else "🔴 Inactive"
+        st.markdown(f"**Monitoring Status:** {monitoring_status}")
+    
+    @staticmethod
+    def render_full_memory_dashboard(adapter):
+        """Render complete memory monitoring dashboard."""
+        st.markdown("""
+        <div style="background: linear-gradient(145deg, #2a2a3e 0%, #1f1f32 100%); 
+                    padding: 1rem; border-radius: 10px; border: 1px solid #3a3a54; margin: 10px 0;">
+            <p style="color: #a78bfa; margin: 0; font-size: 14px;">
+                📊 Real-time monitoring of Atlas application memory consumption, cache usage, and optimization tools.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        MemoryMonitor.render_memory_stats(adapter)
+        st.divider()
+        MemoryMonitor.render_memory_trends(adapter)
+        st.divider()
+        MemoryMonitor.render_memory_controls(adapter)

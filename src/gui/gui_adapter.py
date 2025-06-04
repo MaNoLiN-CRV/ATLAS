@@ -22,6 +22,9 @@ class GUIAdapter:
         
         # Initialize memory monitoring
         self.print_memory_usage("GUI Adapter initialized")
+        
+        # Start memory monitoring automatically with a 30-second interval
+        self.start_memory_monitoring(30)
     
     def print_memory_usage(self, context: str = "") -> None:
         """Print current memory usage of the application."""
@@ -219,8 +222,24 @@ class GUIAdapter:
     def get_summary_stats(self) -> Dict[str, Any]:
         """Get summary statistics for dashboard."""
         df = self.get_dataframe()
+        
+        # Get memory stats
+        memory_stats = self.get_memory_stats()
+        
         if df.empty:
-            return {}
+            return {
+                'total_queries': 0,
+                'avg_response_time': 0,
+                'avg_cpu_time': 0,
+                'avg_logical_reads': 0,
+                'avg_physical_reads': 0,
+                'total_executions': 0,
+                'last_collection': None,
+                'memory_usage_mb': memory_stats.get('rss_mb', 0),
+                'cache_memory_mb': memory_stats.get('cache_memory_mb', 0),
+                'cache_records': memory_stats.get('cache_records', 0),
+                'memory_percent': memory_stats.get('memory_percent', 0)
+            }
         
         return {
             'total_queries': len(df),
@@ -229,7 +248,11 @@ class GUIAdapter:
             'avg_logical_reads': df['avg_logical_reads'].mean() if 'avg_logical_reads' in df.columns else 0,
             'avg_physical_reads': df['avg_physical_reads'].mean() if 'avg_physical_reads' in df.columns else 0,
             'total_executions': df['execution_count'].sum() if 'execution_count' in df.columns else 0,
-            'last_collection': self.last_update
+            'last_collection': self.last_update,
+            'memory_usage_mb': memory_stats.get('rss_mb', 0),
+            'cache_memory_mb': memory_stats.get('cache_memory_mb', 0),
+            'cache_records': memory_stats.get('cache_records', 0),
+            'memory_percent': memory_stats.get('memory_percent', 0)
         }
     
     def subscribe_to_updates(self, callback: Callable) -> None:
