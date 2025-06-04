@@ -132,8 +132,8 @@ class MainWindow:
             
             selected = option_menu(
                 menu_title="Navigation",
-                options=["Dashboard", "Query Analysis", "Performance Trends", "System Metrics", "Query Details"],
-                icons=["speedometer2", "search", "graph-up", "cpu", "list-task"],
+                options=["Dashboard", "Query Analysis", "Performance Trends", "System Metrics", "Query Details", "Atlas Metrics"],
+                icons=["speedometer2", "search", "graph-up", "cpu", "list-task", "gear"],
                 menu_icon="cast",
                 default_index=0,
                 styles={
@@ -168,6 +168,8 @@ class MainWindow:
             self._render_system_metrics()
         elif selected == "Query Details":
             self._render_query_details()
+        elif selected == "Atlas Metrics":
+            self._render_atlas_metrics()
     
     def get_base64_of_image(self, path):
         """Convert image to base64 for better quality control."""
