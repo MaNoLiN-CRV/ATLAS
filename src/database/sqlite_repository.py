@@ -241,6 +241,29 @@ class SQLiteRepository:
             self.logger.error(f"Unexpected error saving metrics: {e}")
             return False
     
+    def _decompress_text_field(self, data) -> str:
+        """Safely decompress text field data, handling both bytes and string types.
+        
+        Args:
+            data: The data to decompress (bytes or str)
+            
+        Returns:
+            Decompressed string
+        """
+        if data is None:
+            return ''
+        
+        if isinstance(data, bytes):
+            try:
+                return decompress_data(data).decode('utf-8')
+            except Exception:
+                # If decompression fails, assume it's already a string encoded as bytes
+                return data.decode('utf-8', errors='ignore')
+        elif isinstance(data, str):
+            return data
+        else:
+            return str(data)
+
     def get_all_metrics(self) -> List[CustomMetrics]:
         """Retrieve all custom metrics from the database.
         
@@ -289,8 +312,8 @@ class SQLiteRepository:
                         'avg_logical_writes': row[11],
                         'creation_time': datetime.fromisoformat(row[12]),
                         'last_execution_time': datetime.fromisoformat(row[13]),
-                        'query_text': str(decompress_data(row[14])).decode('utf-8'), # DATA DECOMPRESSION
-                        'query_plan': str(decompress_data(row[15])).decode('utf-8') if row[15] is not None else '', # DATA DECOMPRESSION
+                        'query_text': self._decompress_text_field(row[14]),
+                        'query_plan': self._decompress_text_field(row[15]),
                         'min_elapsed_time_ms': row[16],
                         'max_elapsed_time_ms': row[17],
                         'min_cpu_time_ms': row[18],
@@ -392,8 +415,8 @@ class SQLiteRepository:
                         'avg_logical_writes': row[11],
                         'creation_time': datetime.fromisoformat(row[12]),
                         'last_execution_time': datetime.fromisoformat(row[13]),
-                        'query_text': decompress_data(row[14]).decode('utf-8'),
-                        'query_plan': decompress_data(row[15]).decode('utf-8') if row[15] is not None else '',
+                        'query_text': self._decompress_text_field(row[14]),
+                        'query_plan': self._decompress_text_field(row[15]),
                         'min_elapsed_time_ms': row[16],
                         'max_elapsed_time_ms': row[17],
                         'min_cpu_time_ms': row[18],
@@ -492,8 +515,8 @@ class SQLiteRepository:
                         'avg_logical_writes': row[11],
                         'creation_time': datetime.fromisoformat(row[12]),
                         'last_execution_time': datetime.fromisoformat(row[13]),
-                        'query_text': decompress_data(row[14]).decode('utf-8'),
-                        'query_plan': decompress_data(row[15]).decode('utf-8') if row[15] is not None else '',
+                        'query_text': self._decompress_text_field(row[14]),
+                        'query_plan': self._decompress_text_field(row[15]),
                         'min_elapsed_time_ms': row[16],
                         'max_elapsed_time_ms': row[17],
                         'min_cpu_time_ms': row[18],
