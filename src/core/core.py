@@ -16,8 +16,25 @@ class Core:
     This class serves as the central coordination logic of the application.
     It coordinates data collection, analysis, and GUI updates using the observer pattern.
     """
+    
+    # Class variable to track singleton instance
+    _instance = None
+
+    @classmethod
+    def get_instance(cls):
+        """Get or create the Core singleton instance."""
+        if cls._instance is None:
+            cls._instance = Core()
+        return cls._instance
 
     def __init__(self):
+        """Initialize Core components only if not already initialized."""
+        # Check if this instance has been initialized before
+        if hasattr(self, '_initialized') and self._initialized:
+            print("Core already initialized, skipping initialization.")
+            return
+            
+        print("Initializing Core components...")
         self.config = ConfigManager()
         self.connector = MSSQLConnector()
         self.sqlite_repository = SQLiteRepository()
@@ -35,6 +52,9 @@ class Core:
         self._collection_thread = None
         self._stop_collection = threading.Event()
         self._collection_interval = self.config.get_collection_lapse()
+        
+        # Mark as initialized
+        self._initialized = True
 
     def _initialize_database(self, connector: MSSQLConnector):
         """Initialize database connections."""
@@ -132,15 +152,21 @@ class Core:
     def run_gui(self):
         """Run the GUI application."""
         from src.gui import create_gui
+        import streamlit as st
         
-        print("Starting Atlas GUI...")
-        
-        # Initialize GUI with existing data
-        self.initialize_gui_data()
-        
-        # Start data collection in background
-        self.start_data_collection()
-        
+        # Store Core instance in session state if not already there
+        if 'core' not in st.session_state:
+            st.session_state['core'] = self
+            print("Core instance stored in session state")
+            
+            # Initialize GUI with existing data only once
+            self.initialize_gui_data()
+            
+            # Start data collection in background only once
+            self.start_data_collection()
+        else:
+            print("Using existing Core instance from session state")
+            
         # Create and run GUI
         gui = create_gui(self.gui_adapter)
         gui.run()

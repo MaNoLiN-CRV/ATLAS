@@ -50,11 +50,11 @@ def main():
         
         # Initialize the Core
         print("Initializing Atlas...")
-        core = Core()
         
         # Run in the appropriate mode
         if args.nogui:
             # Run in command-line mode
+            core = Core.get_instance()  # Use singleton pattern
             print("Starting in command-line mode")
             core.run()
         else:
@@ -62,6 +62,13 @@ def main():
             try:
                 import streamlit as st
                 if hasattr(st, 'runtime') and hasattr(st.runtime, 'exists') and st.runtime.exists():
+                    # Get or create Core instance using singleton pattern
+                    core = Core.get_instance()
+                    
+                    # Print debug info about session state
+                    print(f"Session ID: {id(st.session_state)}")
+                    print(f"Core exists in session: {'core' in st.session_state}")
+                    
                     # Running under Streamlit - proceed with GUI
                     print("Starting in GUI mode")
                     core.run_gui()

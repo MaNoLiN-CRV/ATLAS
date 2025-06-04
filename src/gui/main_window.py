@@ -17,7 +17,14 @@ class MainWindow:
     """Main GUI window for Atlas database performance monitoring."""
     
     def __init__(self, gui_adapter: GUIAdapter):
-        self.adapter = gui_adapter
+        # Use the adapter from the parameter, but ensure it's from session state if available
+        if 'gui_adapter' not in st.session_state and gui_adapter is not None:
+            st.session_state['gui_adapter'] = gui_adapter
+            self.adapter = gui_adapter
+        else:
+            # Use existing adapter from session state if available
+            self.adapter = st.session_state.get('gui_adapter', gui_adapter)
+            
         self._setup_page_config()
         self._apply_dark_theme()
     
@@ -118,8 +125,8 @@ class MainWindow:
     
     def run(self):
         """Main application entry point."""
-        # Auto-refresh every 30 seconds
-        count = st_autorefresh(interval=30000, limit=None, key="atlas_refresh")
+        # Use a unique key for autorefresh to avoid conflicts
+        count = st_autorefresh(interval=30000, limit=None, key="atlas_refresh_dashboard")
         
         # Sidebar navigation
         with st.sidebar:
