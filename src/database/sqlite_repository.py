@@ -196,8 +196,8 @@ class SQLiteRepository:
                             float(item['avg_logical_writes']),
                             item['creation_time'].isoformat(),
                             item['last_execution_time'].isoformat(),
-                            compress_data(item['query_text'].encode('utf-8')), # HIGH STORAGE SIZE
-                            compress_data(item.get('query_plan', '').encode('utf-8')), # HIGH STORAGE SIZE
+                            compress_data(str(item['query_text']).encode('utf-8')),  
+                            compress_data(str(item.get('query_plan', '')).encode('utf-8')),  
                             item['min_elapsed_time_ms'],
                             item['max_elapsed_time_ms'],
                             item['min_cpu_time_ms'],
