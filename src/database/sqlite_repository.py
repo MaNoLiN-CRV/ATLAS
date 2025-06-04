@@ -483,27 +483,58 @@ class SQLiteRepository:
                         'total_cpu_time_ms': row[2],
                         'total_logical_reads': row[3],
                         'total_physical_reads': row[4],
-                        'execution_count': row[5],
-                        'avg_elapsed_time_ms': row[6],
-                        'avg_cpu_time_ms': row[7],
-                        'creation_time': datetime.fromisoformat(row[8]),
-                        'last_execution_time': datetime.fromisoformat(row[9]),
-                        'query_text': decompress_data(row[10]).decode('utf-8'),
-                        'query_plan': decompress_data(row[11]).decode('utf-8') if row[11] is not None else ''
+                        'total_logical_writes': row[5],
+                        'execution_count': row[6],
+                        'avg_elapsed_time_ms': row[7],
+                        'avg_cpu_time_ms': row[8],
+                        'avg_logical_reads': row[9],
+                        'avg_physical_reads': row[10],
+                        'avg_logical_writes': row[11],
+                        'creation_time': datetime.fromisoformat(row[12]),
+                        'last_execution_time': datetime.fromisoformat(row[13]),
+                        'query_text': decompress_data(row[14]).decode('utf-8'),
+                        'query_plan': decompress_data(row[15]).decode('utf-8') if row[15] is not None else '',
+                        'min_elapsed_time_ms': row[16],
+                        'max_elapsed_time_ms': row[17],
+                        'min_cpu_time_ms': row[18],
+                        'max_cpu_time_ms': row[19],
+                        'plan_generation_num': row[20],
+                        'total_rows': row[21],
+                        'avg_rows_returned': row[22],
+                        'total_dop': row[23],
+                        'avg_dop': row[24],
+                        'total_grant_kb': row[25],
+                        'avg_grant_kb': row[26],
+                        'total_used_grant_kb': row[27],
+                        'avg_used_grant_kb': row[28],
+                        'total_ideal_grant_kb': row[29],
+                        'avg_ideal_grant_kb': row[30],
+                        'total_reserved_threads': row[31],
+                        'total_used_threads': row[32],
+                        'total_clr_time_ms': row[33],
+                        'avg_clr_time_ms': row[34],
+                        'total_spills': row[35],
+                        'avg_spills': row[36],
+                        'buffer_hit_ratio': row[37],
+                        'cpu_efficiency_ratio': row[38],
+                        'query_hash': row[39],
+                        'query_plan_hash': row[40],
+                        'collection_timestamp': datetime.fromisoformat(row[41])
                     }
                     
-                    metric = CustomMetrics(
-                        value=RawPerformanceData([performance_data]),
-                        timestamp=datetime.fromisoformat(row[0])
-                    )
+                    # Create CustomMetrics as a dictionary rather than using class constructor
+                    metric = {
+                        'value': performance_data,  # Direct dict instead of RawPerformanceData
+                        'timestamp': datetime.fromisoformat(row[0])
+                    }
                     metrics.append(metric)
-                
-                # Reverse to get chronological order
-                metrics.reverse()
-                
-                self.logger.info(f"Retrieved {len(metrics)} latest metrics")
-                return metrics
-                
+            
+            # Reverse to get chronological order
+            metrics.reverse()
+            
+            self.logger.info(f"Retrieved {len(metrics)} latest metrics")
+            return metrics
+            
         except sqlite3.Error as e:
             self.logger.error(f"Failed to retrieve latest metrics: {e}")
             return []
