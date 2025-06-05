@@ -173,7 +173,7 @@ class GUIAdapter:
             return pd.DataFrame()
         
         # Group by hour and calculate averages
-        df_filtered['hour'] = df_filtered['collection_timestamp'].dt.floor('H')
+        df_filtered['hour'] = df_filtered['collection_timestamp'].dt.floor('h')
         trends = df_filtered.groupby('hour').agg({
             'avg_elapsed_time_ms': 'mean',
             'avg_cpu_time_ms': 'mean',
