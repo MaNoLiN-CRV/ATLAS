@@ -395,7 +395,7 @@ class MainWindow:
         st.plotly_chart(fig, use_container_width=True)
     
     def _render_query_analysis(self):
-        """Render detailed query analysis page."""
+        """Render detailed query analysis page with query grouping."""
         st.title("🔍 Query Analysis")
         
         df = self.adapter.get_dataframe()
@@ -404,68 +404,215 @@ class MainWindow:
             return
         
         # Analysis controls
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         
         with col1:
+            view_mode = st.selectbox("View Mode:", ["Grouped by Query", "Individual Instances"])
+        
+        with col2:
             metric_options = ['avg_elapsed_time_ms', 'avg_cpu_time_ms', 'avg_logical_reads', 
                             'avg_physical_reads', 'total_elapsed_time_ms']
             selected_metric = st.selectbox("Sort by:", metric_options)
         
-        with col2:
+        with col3:
             limit = st.number_input("Number of queries:", min_value=5, max_value=100, value=20)
         
-        with col3:
+        with col4:
             min_executions = st.number_input("Min executions:", min_value=1, value=1)
         
-        # Filter and sort data
+        # Filter data
         filtered_df = df[df['execution_count'] >= min_executions]
-        top_queries = filtered_df.nlargest(limit, selected_metric)
         
-        # Display results
-        st.subheader(f"Top {limit} Queries by {selected_metric}")
+        if view_mode == "Grouped by Query":
+            # Group by query_hash and aggregate metrics
+            if 'query_hash' in filtered_df.columns:
+                grouped_queries = self._group_queries_by_hash(filtered_df, selected_metric, limit)
+                
+                if not grouped_queries.empty:
+                    # Display grouped results
+                    st.subheader(f"Top {len(grouped_queries)} Query Families by {selected_metric}")
+                    
+                    # Create summary table for grouped queries
+                    display_columns = [
+                        'query_family_id', 'total_instances', 'total_executions',
+                        'avg_elapsed_time_ms', 'avg_cpu_time_ms', 'avg_logical_reads', 
+                        'query_preview'
+                    ]
+                    
+                    summary_df = grouped_queries[display_columns].copy()
+                    
+                    st.dataframe(
+                        summary_df,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            'query_family_id': 'Family ID',
+                            'total_instances': 'Instances',
+                            'total_executions': 'Total Executions',
+                            'avg_elapsed_time_ms': 'Avg Time (ms)',
+                            'avg_cpu_time_ms': 'Avg CPU (ms)',
+                            'avg_logical_reads': 'Avg Reads',
+                            'query_preview': 'Query Preview'
+                        }
+                    )
+                    
+                    # Detailed group examination
+                    st.subheader("🔎 Query Family Details")
+                    
+                    family_index = st.selectbox(
+                        "Select query family for details:",
+                        range(len(grouped_queries)),
+                        format_func=lambda x: f"Family {grouped_queries.iloc[x]['query_family_id']}: {grouped_queries.iloc[x]['query_preview']}"
+                    )
+                    
+                    selected_family = grouped_queries.iloc[family_index]
+                    self._render_grouped_query_details(selected_family, filtered_df)
+                else:
+                    st.warning("No query groups found. Try adjusting your filters.")
+            else:
+                st.warning("Query hash information not available. Falling back to individual view.")
+                view_mode = "Individual Instances"
         
-        # Create a summary table
-        display_columns = [
-            'avg_elapsed_time_ms', 'avg_cpu_time_ms', 'avg_logical_reads',
-            'execution_count', 'query_text'
-        ]
-        
-        summary_df = top_queries[display_columns].copy()
-        summary_df['query_text'] = summary_df['query_text'].str[:100] + '...'
-        
-        st.dataframe(
-            summary_df,
-            use_container_width=True,
-            hide_index=True
-        )
-        
-        # Detailed query examination
-        st.subheader("🔎 Query Details")
-        
-        if not top_queries.empty:
-            query_index = st.selectbox(
-                "Select query for details:",
-                range(len(top_queries)),
-                format_func=lambda x: f"Query {x+1}: {top_queries.iloc[x]['query_text'][:50]}..."
+        if view_mode == "Individual Instances":
+            # Original individual query view
+            top_queries = filtered_df.nlargest(limit, selected_metric)
+            
+            # Display results
+            st.subheader(f"Top {limit} Individual Queries by {selected_metric}")
+            
+            # Create a summary table
+            display_columns = [
+                'avg_elapsed_time_ms', 'avg_cpu_time_ms', 'avg_logical_reads',
+                'execution_count', 'query_text'
+            ]
+            
+            summary_df = top_queries[display_columns].copy()
+            summary_df['query_text'] = summary_df['query_text'].str[:100] + '...'
+            
+            st.dataframe(
+                summary_df,
+                use_container_width=True,
+                hide_index=True
             )
             
-            selected_query = top_queries.iloc[query_index]
+            # Detailed query examination
+            st.subheader("🔎 Query Details")
             
-            col1, col2 = st.columns(2)
+            if not top_queries.empty:
+                query_index = st.selectbox(
+                    "Select query for details:",
+                    range(len(top_queries)),
+                    format_func=lambda x: f"Query {x+1}: {top_queries.iloc[x]['query_text'][:50]}..."
+                )
+                
+                selected_query = top_queries.iloc[query_index]
+                self._render_individual_query_details(selected_query)
+    
+    def _group_queries_by_hash(self, df, selected_metric, limit):
+        """Group queries by query_hash and aggregate their metrics."""
+        if 'query_hash' not in df.columns or df['query_hash'].isna().all():
+            return pd.DataFrame()
+        
+        # Remove rows with null query_hash
+        df_with_hash = df.dropna(subset=['query_hash'])
+        
+        # Group by query_hash and aggregate
+        grouped = df_with_hash.groupby('query_hash').agg({
+            'execution_count': 'sum',
+            'total_elapsed_time_ms': 'sum',
+            'total_cpu_time_ms': 'sum',
+            'total_logical_reads': 'sum',
+            'total_physical_reads': 'sum',
+            'total_logical_writes': 'sum',
+            'avg_elapsed_time_ms': 'mean',
+            'avg_cpu_time_ms': 'mean',
+            'avg_logical_reads': 'mean',
+            'avg_physical_reads': 'mean',
+            'avg_logical_writes': 'mean',
+            'query_text': 'first',  # Take first instance for preview
+            'last_execution_time': 'max',
+            'creation_time': 'min'
+        }).reset_index()
+        
+        # Add derived metrics
+        grouped['total_instances'] = df_with_hash.groupby('query_hash').size().values
+        grouped['total_executions'] = grouped['execution_count']
+        grouped['query_family_id'] = range(1, len(grouped) + 1)
+        grouped['query_preview'] = grouped['query_text'].str[:80] + '...'
+        
+        # Recalculate weighted averages for the group
+        grouped['avg_elapsed_time_ms'] = grouped['total_elapsed_time_ms'] / grouped['total_executions']
+        grouped['avg_cpu_time_ms'] = grouped['total_cpu_time_ms'] / grouped['total_executions']
+        grouped['avg_logical_reads'] = grouped['total_logical_reads'] / grouped['total_executions']
+        
+        # Sort by selected metric and limit
+        grouped = grouped.nlargest(limit, selected_metric)
+        
+        return grouped
+    
+    def _render_grouped_query_details(self, selected_family, original_df):
+        """Render details for a grouped query family."""
+        query_hash = selected_family['query_hash']
+        
+        # Get all instances of this query family
+        family_instances = original_df[original_df['query_hash'] == query_hash]
+        
+        # Display family metrics
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Total Instances", f"{selected_family['total_instances']:,}")
+            st.metric("Avg Elapsed Time", f"{selected_family['avg_elapsed_time_ms']:.2f} ms")
+            st.metric("Total Executions", f"{selected_family['total_executions']:,}")
+        
+        with col2:
+            st.metric("Avg CPU Time", f"{selected_family['avg_cpu_time_ms']:.2f} ms")
+            st.metric("Avg Logical Reads", f"{selected_family['avg_logical_reads']:,.0f}")
+            st.metric("Total Elapsed Time", f"{selected_family['total_elapsed_time_ms']:,.0f} ms")
+        
+        with col3:
+            st.metric("First Seen", selected_family['creation_time'].strftime('%Y-%m-%d %H:%M'))
+            st.metric("Last Execution", selected_family['last_execution_time'].strftime('%Y-%m-%d %H:%M'))
+            if 'avg_rows_returned' in selected_family:
+                st.metric("Avg Rows Returned", f"{selected_family.get('avg_rows_returned', 0):,.0f}")
+        
+        # Query family instances
+        with st.expander(f"📋 View All {len(family_instances)} Instances", expanded=False):
+            instance_display_cols = [
+                'avg_elapsed_time_ms', 'avg_cpu_time_ms', 'execution_count',
+                'avg_logical_reads', 'last_execution_time'
+            ]
             
-            with col1:
-                st.metric("Avg Elapsed Time", f"{selected_query['avg_elapsed_time_ms']:.2f} ms")
-                st.metric("Avg CPU Time", f"{selected_query['avg_cpu_time_ms']:.2f} ms")
-                st.metric("Execution Count", f"{selected_query['execution_count']:,}")
+            instances_df = family_instances[instance_display_cols].copy()
+            instances_df['last_execution_time'] = instances_df['last_execution_time'].dt.strftime('%Y-%m-%d %H:%M:%S')
             
-            with col2:
-                st.metric("Avg Logical Reads", f"{selected_query['avg_logical_reads']:,.0f}")
-                st.metric("Avg Physical Reads", f"{selected_query['avg_physical_reads']:,.0f}")
-                if 'avg_rows_returned' in selected_query:
-                    st.metric("Avg Rows Returned", f"{selected_query['avg_rows_returned']:,.0f}")
-            
-            st.subheader("SQL Query Text")
-            st.code(selected_query['query_text'], language='sql')
+            st.dataframe(
+                instances_df,
+                use_container_width=True,
+                hide_index=True
+            )
+        
+        # Query text
+        st.subheader("SQL Query Text")
+        st.code(selected_family['query_text'], language='sql')
+    
+    def _render_individual_query_details(self, selected_query):
+        """Render details for an individual query instance."""
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.metric("Avg Elapsed Time", f"{selected_query['avg_elapsed_time_ms']:.2f} ms")
+            st.metric("Avg CPU Time", f"{selected_query['avg_cpu_time_ms']:.2f} ms")
+            st.metric("Execution Count", f"{selected_query['execution_count']:,}")
+        
+        with col2:
+            st.metric("Avg Logical Reads", f"{selected_query['avg_logical_reads']:,.0f}")
+            st.metric("Avg Physical Reads", f"{selected_query['avg_physical_reads']:,.0f}")
+            if 'avg_rows_returned' in selected_query:
+                st.metric("Avg Rows Returned", f"{selected_query['avg_rows_returned']:,.0f}")
+        
+        st.subheader("SQL Query Text")
+        st.code(selected_query['query_text'], language='sql')
     
     def _render_performance_trends(self):
         """Render performance trends over time."""
