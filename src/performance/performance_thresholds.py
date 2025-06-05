@@ -11,7 +11,7 @@ class PerformanceThresholds:
     """Configuration class for performance filtering thresholds."""
     
     # Time-based thresholds (in milliseconds)
-    max_avg_elapsed_time_ms: float = 1000.0          # Queries with avg > 1 second
+    max_avg_elapsed_time_ms: float = 500.0          # Queries with avg > 500 ms
     max_total_elapsed_time_ms: float = 30000.0       # Queries with total > 30 seconds
     max_avg_cpu_time_ms: float = 5000.0              # Queries with avg CPU > 5 seconds
     
