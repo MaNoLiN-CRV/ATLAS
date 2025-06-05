@@ -35,7 +35,7 @@ class PerformanceThresholds:
     min_cpu_efficiency_ratio: float = 50.0          # CPU efficiency < 50%
     
     # Database size considerations
-    max_stored_queries_per_collection: int = 50      # Limit per collection cycle
+    max_stored_queries_per_collection: int = 100      # Limit per collection cycle
     
     @classmethod
     def get_conservative_thresholds(cls) -> 'PerformanceThresholds':
