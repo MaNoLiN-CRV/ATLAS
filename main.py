@@ -62,6 +62,12 @@ def main():
             try:
                 import streamlit as st
                 if hasattr(st, 'runtime') and hasattr(st.runtime, 'exists') and st.runtime.exists():
+                    # Show immediate loading screen
+                    if 'app_started' not in st.session_state:
+                        st.session_state['app_started'] = True
+                        # Force rerun to show loading screen
+                        st.rerun()
+                    
                     # Get or create Core instance using singleton pattern
                     core = Core.get_instance()
                     

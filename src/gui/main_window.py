@@ -125,6 +125,29 @@ class MainWindow:
     
     def run(self):
         """Main application entry point."""
+        # Check if initialization is complete
+        if not st.session_state.get('initialization_complete', False):
+            from .loading import create_loading_placeholder
+            create_loading_placeholder()
+            return
+            
+        # Check if adapter is ready
+        if self.adapter is None:
+            from .loading import create_loading_placeholder
+            create_loading_placeholder()
+            return
+            
+        # Check if adapter has data (additional safety check)
+        try:
+            df = self.adapter.get_dataframe()
+            data_available = not df.empty if df is not None else False
+        except Exception:
+            data_available = False
+            
+        if not data_available and not st.session_state.get('data_loading_shown', False):
+            st.session_state['data_loading_shown'] = True
+            st.info("🔄 Loading performance data... This may take a moment.")
+        
         # Use a unique key for autorefresh to avoid conflicts
         count = st_autorefresh(interval=30000, limit=None, key="atlas_refresh_dashboard")
         
@@ -234,9 +257,49 @@ class MainWindow:
         """Render main dashboard with overview metrics."""
         st.title("📊 Atlas Performance Dashboard")
         
-        df = self.adapter.get_dataframe()
+        try:
+            df = self.adapter.get_dataframe()
+        except Exception as e:
+            st.error(f"Error loading data: {str(e)}")
+            return
+            
         if df.empty:
-            st.warning("No performance data available. Please ensure the collector is running.")
+            # Show a more informative loading/empty state
+            st.markdown("""
+            <div style="
+                text-align: center;
+                padding: 3rem;
+                background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+                border-radius: 15px;
+                margin: 2rem 0;
+            ">
+                <div style="
+                    font-size: 3rem;
+                    margin-bottom: 1rem;
+                ">📊</div>
+                <h3 style="color: #e1e1e6; margin-bottom: 1rem;">No Performance Data Available</h3>
+                <p style="color: #9ca3af; font-size: 1.1rem;">
+                    The system is collecting performance metrics. Data will appear shortly.
+                </p>
+                <div style="margin-top: 2rem;">
+                    <div style="
+                        width: 40px;
+                        height: 40px;
+                        border: 3px solid #374151;
+                        border-top: 3px solid #6366f1;
+                        border-radius: 50%;
+                        animation: spin 1s linear infinite;
+                        margin: 0 auto;
+                    "></div>
+                </div>
+            </div>
+            <style>
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            </style>
+            """, unsafe_allow_html=True)
             return
         
         # Key metrics row

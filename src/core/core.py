@@ -152,24 +152,100 @@ class Core:
     def run_gui(self):
         """Run the GUI application."""
         from src.gui import create_gui
+        from src.gui.loading import show_startup_loading, AsyncLoader
         import streamlit as st
         
         # Store Core instance in session state if not already there
         if 'core' not in st.session_state:
+            # Show loading screen during initialization
+            if 'initialization_complete' not in st.session_state:
+                try:
+                    loader = show_startup_loading()
+                    async_loader = AsyncLoader(loader)
+                    
+                    # Add initialization operations
+                    async_loader.add_operation(
+                        "🔧 Setting up Core", 
+                        "Initializing system components", 
+                        lambda: self._store_core_in_session()
+                    )
+                    async_loader.add_operation(
+                        "🗄️ Connecting to Database", 
+                        "Establishing database connections", 
+                        lambda: self._verify_database_connections()
+                    )
+                    async_loader.add_operation(
+                        "📊 Loading Existing Data", 
+                        "Retrieving performance metrics", 
+                        lambda: self.initialize_gui_data()
+                    )
+                    async_loader.add_operation(
+                        "🚀 Starting Data Collection", 
+                        "Initiating background monitoring", 
+                        lambda: self.start_data_collection()
+                    )
+                    async_loader.add_operation(
+                        "🎨 Preparing Interface", 
+                        "Setting up dashboard components", 
+                        lambda: self._prepare_gui_interface()
+                    )
+                    async_loader.add_operation(
+                        "✅ Finalizing Setup", 
+                        "Completing initialization", 
+                        lambda: self._complete_initialization()
+                    )
+                    
+                    # Execute all operations
+                    async_loader.execute_operations()
+                    
+                    # Mark initialization as complete
+                    st.session_state['initialization_complete'] = True
+                    st.rerun()
+                    return
+                    
+                except Exception as e:
+                    st.error(f"❌ Initialization failed: {str(e)}")
+                    st.info("Please check your configuration and database connection.")
+                    return
+            
             st.session_state['core'] = self
             print("Core instance stored in session state")
-            
-            # Initialize GUI with existing data only once
-            self.initialize_gui_data()
-            
-            # Start data collection in background only once
-            self.start_data_collection()
         else:
             print("Using existing Core instance from session state")
             
         # Create and run GUI
-        gui = create_gui(self.gui_adapter)
-        gui.run()
+        try:
+            gui = create_gui(self.gui_adapter)
+            gui.run()
+        except Exception as e:
+            st.error(f"❌ Error running GUI: {str(e)}")
+            st.info("Please refresh the page or check the logs for more details.")
+    
+    def _store_core_in_session(self):
+        """Store core instance in session state."""
+        import streamlit as st
+        st.session_state['core'] = self
+        print("Core instance stored in session state")
+    
+    def _verify_database_connections(self):
+        """Verify database connections are working."""
+        try:
+            # Test connection
+            if hasattr(self.connector, 'test_connection'):
+                self.connector.test_connection()
+            print("Database connections verified")
+        except Exception as e:
+            print(f"Database connection verification failed: {e}")
+            raise e
+    
+    def _prepare_gui_interface(self):
+        """Prepare GUI interface components."""
+        # Any GUI-specific preparations
+        print("GUI interface prepared")
+    
+    def _complete_initialization(self):
+        """Complete the initialization process."""
+        print("Atlas initialization completed successfully")
     
     def get_gui_adapter(self) -> GUIAdapter:
         """Get the GUI adapter instance."""
