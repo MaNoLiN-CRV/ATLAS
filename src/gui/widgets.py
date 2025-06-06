@@ -7,6 +7,8 @@ from datetime import datetime
 import time
 import os
 
+from src.core.core import Core
+
 
 class PerformanceMetricCard:
     """Custom metric card widget with enhanced styling."""
@@ -638,7 +640,7 @@ class DatabaseUtilsWidget:
                 st.warning(f"Could not retrieve database info: {str(e)}")
     
     @staticmethod
-    def _create_backup(core_instance, backup_path: str, compress: bool = True, verify: bool = True):
+    def _create_backup(core_instance : Core, backup_path: str, compress: bool = True, verify: bool = True):
         """Create a database backup with progress tracking."""
         progress_bar = st.progress(0)
         status_text = st.empty()
@@ -660,7 +662,7 @@ class DatabaseUtilsWidget:
             progress_bar.progress(50)
             
             # Call the backup method
-            database_utils.make_backup(backup_path)
+            correct = database_utils.make_backup(backup_path)
             progress_bar.progress(80)
             time.sleep(0.5)
             
@@ -672,6 +674,12 @@ class DatabaseUtilsWidget:
             
             # Step 5: Complete
             progress_bar.progress(100)
+            
+            if not correct:
+                status_text.text("❌ Backup failed!")
+                st.error("❌ Backup failed! Please check the logs for details.")
+                return
+            
             status_text.text("✅ Backup completed successfully!")
             
             st.success(f"✅ Database backup created successfully at: `{backup_path}`")
