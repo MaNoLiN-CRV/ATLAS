@@ -9,8 +9,8 @@ class DatabaseUtils:
         self.connector = connector
         self.backupMaker = BackupMaker(connector)
 
-    def make_backup(self, backup_path: str) -> bool:
+    def make_backup(self, backup_path: str , compress: bool = True) -> bool:
         """
         Creates a database backup at the specified path.
         """
-        return self.backupMaker.make_backup(backup_path if backup_path is not None else "backup.bak")
+        return self.backupMaker.make_backup(backup_path if backup_path is not None else "backup.bak", compress)

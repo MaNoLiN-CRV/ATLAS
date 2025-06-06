@@ -662,7 +662,7 @@ class DatabaseUtilsWidget:
             progress_bar.progress(50)
             
             # Call the backup method
-            correct = database_utils.make_backup(backup_path)
+            correct = database_utils.make_backup(backup_path , compress)
             progress_bar.progress(80)
             time.sleep(0.5)
             
@@ -674,7 +674,7 @@ class DatabaseUtilsWidget:
             
             # Step 5: Complete
             progress_bar.progress(100)
-            
+
             if not correct:
                 status_text.text("❌ Backup failed!")
                 st.error("❌ Backup failed! Please check the logs for details.")
