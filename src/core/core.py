@@ -7,6 +7,7 @@ from src.performance.analyzer import PerformanceAnalyzer
 from src.performance.collector import PerformanceCollector
 from src.utils.config_manager import ConfigManager
 from src.gui import GUIAdapter
+from src.utils.database_utils import DatabaseUtils
 
 
 class Core:
@@ -41,6 +42,7 @@ class Core:
         self._initialize_database(self.connector)
         self.collector = PerformanceCollector(self.connector)
         self.analyzer = PerformanceAnalyzer(self.sqlite_repository)
+        self.databaseUtils = DatabaseUtils(self.connector)
         
         # GUI adapter for observer pattern
         self.gui_adapter = GUIAdapter()
@@ -67,6 +69,10 @@ class Core:
             print(f"WARNING: Failed to initialize database connection: {e}")
             print("The application will continue but data collection may not work.")
     
+
+    def getDatabaseUtils(self) -> DatabaseUtils:
+        return self.databaseUtils
+
     def _on_new_data(self, new_data):
         """Observer callback for new data from analyzer."""
         try:
