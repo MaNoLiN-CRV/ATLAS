@@ -5,14 +5,19 @@ from dotenv import load_dotenv
 
 class ConfigManager:
     """Configuration manager that loads settings from .env file"""
-    
-    def __init__(self, env_file_path: Optional[str] = None):
-        """
-        Initialize the config manager and load environment variables
-        
-        Args:
-            env_file_path: Optional path to .env file. If None, searches for .env in project root
-        """
+
+    # Class attributes to store configuration
+    db_host: Optional[str] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+    port: Optional[int] = None
+    database: Optional[str] = None
+    driver: Optional[str] = None
+    collection_lapse: Optional[int] = None
+
+    @staticmethod
+    def _load_config_values(env_file_path: Optional[str] = None):
+        """Helper static method to load environment variables into class attributes."""
         if env_file_path is None:
             # Get the project root directory (assuming this file is in src/utils/)
             current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -23,31 +28,55 @@ class ConfigManager:
         load_dotenv(env_file_path)
         
         # Database configuration
-        self.db_host = os.getenv('DB_HOST', 'localhost')
-        self.username = os.getenv('USERNAME', '')
-        self.password = os.getenv('PASSWORD', '')
-        self.port = int(os.getenv('PORT', '1433'))  # Default SQL Server port
-        self.database = os.getenv('DATABASE', '')
-        # Get ODBC driver name - allow for different versions based on system
-        self.driver = os.getenv('ODBC_DRIVER', 'ODBC Driver 17 for SQL Server')
+        ConfigManager.db_host = os.getenv('DB_HOST', 'localhost')
+        ConfigManager.username = os.getenv('USERNAME', '')
+        ConfigManager.password = os.getenv('PASSWORD', '')
         
-        # Collection configuration
-        self.collection_lapse = int(os.getenv('COLLECTION_LAPSE', '60'))  # Default 60 seconds
+        port_str = os.getenv('PORT', '1433')
+        try:
+            ConfigManager.port = int(port_str)
+        except ValueError:
+            ConfigManager.port = 1433  # Default SQL Server port if conversion fails
+            # Consider logging a warning here if a logging mechanism is in place
+            
+        ConfigManager.database = os.getenv('DATABASE', '')
+        ConfigManager.driver = os.getenv('ODBC_DRIVER', 'ODBC Driver 17 for SQL Server')
+        
+        collection_lapse_str = os.getenv('COLLECTION_LAPSE', '60')
+        try:
+            ConfigManager.collection_lapse = int(collection_lapse_str)
+        except ValueError:
+            ConfigManager.collection_lapse = 60  # Default 60 seconds if conversion fails
+            # Consider logging a warning here
+
+    def __init__(self, env_file_path: Optional[str] = None):
+        """
+        Initialize the config manager and load environment variables into class attributes.
+        
+        Args:
+            env_file_path: Optional path to .env file. If None, searches for .env in project root
+        """
+        ConfigManager._load_config_values(env_file_path)
     
-    def get_db_connection_string(self) -> str:
+    @staticmethod
+    def get_db_connection_string() -> str:
         """
         Generate database connection string
         
         Returns:
             Database connection string for SQL Server
         """
-        return (f"DRIVER={{{self.driver}}};"
-                f"SERVER={self.db_host},{self.port};"
-                f"DATABASE={self.database};"
-                f"UID={self.username};"
-                f"PWD={self.password};")
+        if not all([ConfigManager.driver, ConfigManager.db_host, ConfigManager.port is not None, ConfigManager.database, ConfigManager.username is not None, ConfigManager.password is not None]):
+            raise ValueError("Database configuration is not fully loaded. Ensure ConfigManager() was called and .env is correctly set.")
+        
+        return (f"DRIVER={{{ConfigManager.driver}}};"
+                f"SERVER={ConfigManager.db_host},{ConfigManager.port};"
+                f"DATABASE={ConfigManager.database};"
+                f"UID={ConfigManager.username};"
+                f"PWD={ConfigManager.password};")
     
-    def get_db_config(self) -> dict:
+    @staticmethod
+    def get_db_config() -> dict:
         """
         Get database configuration as dictionary
         
@@ -55,54 +84,73 @@ class ConfigManager:
             Dictionary with database configuration
         """
         return {
-            'host': self.db_host,
-            'username': self.username,
-            'password': self.password,
-            'port': self.port
+            'host': ConfigManager.db_host,
+            'username': ConfigManager.username,
+            'password': ConfigManager.password,
+            'port': ConfigManager.port
         }
     
-    def get_collection_lapse(self) -> int:
+    @staticmethod
+    def get_collection_lapse() -> int:
         """
         Get collection lapse in seconds
         
         Returns:
             Collection interval in seconds
         """
-        return self.collection_lapse
+        if ConfigManager.collection_lapse is None:
+             raise ValueError("Collection lapse is not loaded. Ensure ConfigManager() was called and .env is correctly set.")
+        return ConfigManager.collection_lapse
     
-    def validate_config(self) -> bool:
+    @staticmethod
+    def validate_config() -> bool:
         """
-        Validate that all required configuration is present
+        Validate that all required configuration is present at the class level.
+        Note: Considers empty strings as invalid for these fields.
         
         Returns:
             True if configuration is valid, False otherwise
         """
-        required_fields = [self.db_host, self.username, self.password, self.database]
-        return all(field for field in required_fields)
-    
-    def reload_config(self, env_file_path: Optional[str] = None):
+        required_fields_values = [
+            ConfigManager.db_host, 
+            ConfigManager.username, 
+            # Password can be an empty string, so check for None if it should not be None
+            # However, os.getenv defaults to '' so it won't be None unless default is None
+            ConfigManager.password, # If empty password is valid, this check might need adjustment
+            ConfigManager.database
+        ]
+        # Ensure all required string fields are not None AND not empty strings.
+        # For password, an empty string might be a valid value.
+        # The original logic `all(field for field in required_fields)` treats empty strings as False.
+        # We'll maintain that for db_host, username, database. Password '' is also treated as False by `all()`.
+        return all(field for field in required_fields_values)
+
+    @staticmethod
+    def reload_config(env_file_path: Optional[str] = None):
         """
-        Reload configuration from .env file
+        Reload configuration from .env file into class attributes
         
         Args:
             env_file_path: Optional path to .env file
         """
-        self.__init__(env_file_path)
+        ConfigManager._load_config_values(env_file_path)
     
-    def get_all_config(self) -> dict:
+    @staticmethod
+    def get_all_config() -> dict:
         """
-        Get all configuration as dictionary
+        Get all configuration as dictionary from class attributes
         
         Returns:
             Dictionary with all configuration values
         """
         return {
-            'database': self.get_db_config(),
-            'collection_lapse': self.collection_lapse,
-            'valid': self.validate_config()
+            'database': ConfigManager.get_db_config(),
+            'collection_lapse': ConfigManager.collection_lapse,
+            'valid': ConfigManager.validate_config()
         }
     
-    def detect_odbc_drivers(self) -> list:
+    @staticmethod
+    def detect_odbc_drivers() -> list:
         """
         Detects available ODBC drivers for SQL Server
         
@@ -113,18 +161,24 @@ class ConfigManager:
             import pyodbc
             drivers = [driver for driver in pyodbc.drivers() if 'SQL Server' in driver]
             return drivers
-        except Exception:
+        except ImportError: # Be specific about the import error
+            # pyodbc might not be installed, or other import issues.
+            return []
+        except Exception: # Catch other potential pyodbc errors
             return []
     
     def __str__(self) -> str:
-        """String representation of config (without sensitive data)"""
+        """String representation of config (reads from class attributes via self)"""
+        # self.attribute will resolve to ConfigManager.attribute if not set on instance
         return (f"ConfigManager(host={self.db_host}, port={self.port}, "
                 f"username={self.username}, collection_lapse={self.collection_lapse})")
     
     def __repr__(self) -> str:
-        """Detailed representation of config (without sensitive data)"""
+        """Detailed representation of config (reads from class attributes via self)"""
         return self.__str__()
 
 
 # Singleton instance for global access
+# This call to ConfigManager() will execute __init__ once, 
+# loading values into class attributes via _load_config_values.
 config = ConfigManager()
