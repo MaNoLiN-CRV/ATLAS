@@ -162,8 +162,8 @@ class MainWindow:
             
             selected = option_menu(
                 menu_title="Navigation",
-                options=["Dashboard", "Query Analysis", "Performance Trends", "System Metrics", "Query Details", "Atlas Metrics"],
-                icons=["speedometer2", "search", "graph-up", "cpu", "list-task", "gear"],
+                options=["Dashboard", "Query Analysis", "Performance Trends", "System Metrics", "Query Details", "Atlas Metrics", "Database Utils"],
+                icons=["speedometer2", "search", "graph-up", "cpu", "list-task", "gear", "database"],
                 menu_icon="cast",
                 default_index=0,
                 styles={
@@ -200,6 +200,8 @@ class MainWindow:
             self._render_query_details()
         elif selected == "Atlas Metrics":
             self._render_atlas_metrics()
+        elif selected == "Database Utils":
+            self._render_database_utils()
     
     def get_base64_of_image(self, path):
         """Convert image to base64 for better quality control."""
@@ -1027,8 +1029,18 @@ class MainWindow:
         with col3:
             cache_status = "🟢 Healthy" if cache_records < 10000 else "🟡 Large" if cache_records < 20000 else "🔴 Critical"
             st.markdown(f"**Cache Status:** {cache_status}")
-
-
-def create_gui(adapter: GUIAdapter) -> MainWindow:
-    """Factory function to create and configure the main GUI window."""
-    return MainWindow(adapter)
+    
+    def _render_database_utils(self):
+        """Render database utilities page with backup and maintenance tools."""
+        # Import the DatabaseUtilsWidget
+        from .widgets import DatabaseUtilsWidget
+        
+        # Get the core instance from session state to access database utilities
+        core_instance = st.session_state.get('core')
+        
+        if core_instance is None:
+            st.error("🔴 Core instance not available. Please restart the application.")
+            return
+        
+        # Render the full database utilities page
+        DatabaseUtilsWidget.render_full_database_utils_page(core_instance)

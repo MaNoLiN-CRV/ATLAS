@@ -4,6 +4,8 @@ import plotly.graph_objects as go
 import pandas as pd
 from typing import Dict, Any, List, Optional
 from datetime import datetime
+import time
+import os
 
 
 class PerformanceMetricCard:
@@ -560,3 +562,452 @@ class MemoryMonitor:
         MemoryMonitor.render_memory_trends(adapter)
         st.divider()
         MemoryMonitor.render_memory_controls(adapter)
+
+
+class DatabaseUtilsWidget:
+    """Widget for database utilities including backup operations."""
+    
+    @staticmethod
+    def render_backup_section(core_instance):
+        """Render the database backup section."""
+        st.subheader("🗄️ Database Backup")
+        st.markdown("""
+        <div style="background: linear-gradient(145deg, #2a2a3e 0%, #1f1f32 100%); 
+                    padding: 1rem; border-radius: 10px; border: 1px solid #3a3a54; margin: 10px 0;">
+            <p style="color: #a78bfa; margin: 0; font-size: 14px;">
+                💾 Create backups of your database to ensure data safety and enable recovery options.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.markdown("**Backup Configuration**")
+            
+            # Backup file path input
+            default_backup_path = f"atlas_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.bak"
+            backup_path = st.text_input(
+                "Backup File Path:",
+                value=default_backup_path,
+                help="Specify the full path where the backup file should be created"
+            )
+            
+            # Backup options
+            st.markdown("**Backup Options**")
+            backup_format = st.selectbox(
+                "Format:",
+                ["Full Backup", "Differential Backup", "Transaction Log Backup"],
+                index=0,
+                help="Choose the type of backup to create"
+            )
+            
+            compress_backup = st.checkbox(
+                "Compress Backup",
+                value=True,
+                help="Enable compression to reduce backup file size"
+            )
+            
+            verify_backup = st.checkbox(
+                "Verify Backup",
+                value=True,
+                help="Verify backup integrity after creation"
+            )
+        
+        with col2:
+            st.markdown("**Quick Actions**")
+            
+            # Create backup button
+            if st.button("🚀 Create Backup", type="primary", help="Start database backup process"):
+                if backup_path.strip():
+                    DatabaseUtilsWidget._create_backup(core_instance, backup_path.strip(), compress_backup, verify_backup)
+                else:
+                    st.error("Please specify a backup file path")
+            
+            st.markdown("---")
+            
+            # Backup status info
+            st.markdown("**Current Database Info**")
+            try:
+                db_info = DatabaseUtilsWidget._get_database_info(core_instance)
+                if db_info:
+                    st.metric("Database", db_info.get('name', 'Unknown'))
+                    st.metric("Size", f"{db_info.get('size_mb', 0):.1f} MB")
+                    st.metric("Status", db_info.get('status', 'Unknown'))
+            except Exception as e:
+                st.warning(f"Could not retrieve database info: {str(e)}")
+    
+    @staticmethod
+    def _create_backup(core_instance, backup_path: str, compress: bool = True, verify: bool = True):
+        """Create a database backup with progress tracking."""
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        try:
+            # Step 1: Initialize backup
+            status_text.text("🔧 Initializing backup process...")
+            progress_bar.progress(10)
+            time.sleep(0.5)
+            
+            # Step 2: Get database utilities
+            status_text.text("📋 Preparing database utilities...")
+            database_utils = core_instance.getDatabaseUtils()
+            progress_bar.progress(30)
+            time.sleep(0.5)
+            
+            # Step 3: Execute backup
+            status_text.text(f"💾 Creating backup: {backup_path}")
+            progress_bar.progress(50)
+            
+            # Call the backup method
+            database_utils.make_backup(backup_path)
+            progress_bar.progress(80)
+            time.sleep(0.5)
+            
+            # Step 4: Verify if requested
+            if verify:
+                status_text.text("✅ Verifying backup integrity...")
+                progress_bar.progress(90)
+                time.sleep(0.5)
+            
+            # Step 5: Complete
+            progress_bar.progress(100)
+            status_text.text("✅ Backup completed successfully!")
+            
+            st.success(f"✅ Database backup created successfully at: `{backup_path}`")
+            
+            # Show backup summary
+            try:
+                import os
+                if os.path.exists(backup_path):
+                    file_size = os.path.getsize(backup_path) / (1024 * 1024)  # Convert to MB
+                    st.info(f"📊 Backup file size: {file_size:.2f} MB")
+            except:
+                pass
+                
+        except Exception as e:
+            progress_bar.progress(100)
+            status_text.text("❌ Backup failed!")
+            st.error(f"❌ Backup failed: {str(e)}")
+            
+            # Provide troubleshooting tips
+            st.markdown("""
+            **Troubleshooting Tips:**
+            - Ensure the backup path is accessible and writable
+            - Check if there's sufficient disk space
+            - Verify database connection is active
+            - Ensure proper permissions for backup operations
+            """)
+    
+    @staticmethod
+    def _get_database_info(core_instance):
+        """Get current database information."""
+        try:
+            connector = core_instance.connector
+            if not connector or not connector.connection:
+                return None
+            
+            with connector.connection.cursor() as cursor:
+                # Get database name and basic info
+                cursor.execute("""
+                    SELECT 
+                        DB_NAME() as database_name,
+                        DATABASEPROPERTYEX(DB_NAME(), 'Status') as status,
+                        SUM(size * 8.0 / 1024) as size_mb
+                    FROM sys.database_files
+                """)
+                
+                row = cursor.fetchone()
+                if row:
+                    return {
+                        'name': row[0],
+                        'status': row[1],
+                        'size_mb': float(row[2]) if row[2] else 0
+                    }
+        except Exception as e:
+            print(f"Error getting database info: {e}")
+            return None
+    
+    @staticmethod
+    def render_backup_history(core_instance):
+        """Render backup history and management."""
+        st.subheader("📜 Backup History")
+        
+        try:
+            backup_history = DatabaseUtilsWidget._get_backup_history(core_instance)
+            
+            if backup_history:
+                # Convert to DataFrame for better display
+                df = pd.DataFrame(backup_history)
+                
+                # Display as a table
+                st.dataframe(
+                    df,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        'backup_start_date': st.column_config.DatetimeColumn("Start Time"),
+                        'backup_finish_date': st.column_config.DatetimeColumn("Finish Time"),
+                        'backup_size': st.column_config.NumberColumn("Size (MB)", format="%.2f"),
+                        'compressed_backup_size': st.column_config.NumberColumn("Compressed Size (MB)", format="%.2f"),
+                        'type': st.column_config.TextColumn("Type"),
+                        'name': st.column_config.TextColumn("Backup Name")
+                    }
+                )
+                
+                st.info(f"📊 Found {len(backup_history)} backup records")
+            else:
+                st.info("No backup history found")
+                
+        except Exception as e:
+            st.warning(f"Could not retrieve backup history: {str(e)}")
+    
+    @staticmethod
+    def _get_backup_history(core_instance):
+        """Get backup history from SQL Server."""
+        try:
+            connector = core_instance.connector
+            if not connector or not connector.connection:
+                return []
+            
+            with connector.connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT TOP 10
+                        backup_start_date,
+                        backup_finish_date,
+                        backup_size / 1048576.0 as backup_size_mb,
+                        compressed_backup_size / 1048576.0 as compressed_backup_size_mb,
+                        type,
+                        name,
+                        CASE type
+                            WHEN 'D' THEN 'Full Database'
+                            WHEN 'I' THEN 'Differential'
+                            WHEN 'L' THEN 'Transaction Log'
+                            ELSE 'Other'
+                        END as backup_type_desc
+                    FROM msdb.dbo.backupset
+                    WHERE database_name = DB_NAME()
+                    ORDER BY backup_start_date DESC
+                """)
+                
+                columns = [desc[0] for desc in cursor.description]
+                rows = cursor.fetchall()
+                
+                return [dict(zip(columns, row)) for row in rows]
+                
+        except Exception as e:
+            print(f"Error getting backup history: {e}")
+            return []
+    
+    @staticmethod
+    def render_database_maintenance(core_instance):
+        """Render database maintenance tools."""
+        st.subheader("🔧 Database Maintenance")
+        st.markdown("""
+        <div style="background: linear-gradient(145deg, #2a2a3e 0%, #1f1f32 100%); 
+                    padding: 1rem; border-radius: 10px; border: 1px solid #3a3a54; margin: 10px 0;">
+            <p style="color: #a78bfa; margin: 0; font-size: 14px;">
+                🛠️ Tools for maintaining database performance and integrity.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("🔍 Check DB Integrity", help="Run DBCC CHECKDB to verify database integrity"):
+                DatabaseUtilsWidget._check_database_integrity(core_instance)
+        
+        with col2:
+            if st.button("📊 Update Statistics", help="Update database statistics for better query performance"):
+                DatabaseUtilsWidget._update_statistics(core_instance)
+        
+        with col3:
+            if st.button("🧹 Rebuild Indexes", help="Rebuild fragmented indexes"):
+                DatabaseUtilsWidget._rebuild_indexes(core_instance)
+    
+    @staticmethod
+    def _check_database_integrity(core_instance):
+        """Check database integrity."""
+        with st.spinner("Checking database integrity..."):
+            try:
+                connector = core_instance.connector
+                if not connector or not connector.connection:
+                    st.error("Database connection not available")
+                    return
+                
+                with connector.connection.cursor() as cursor:
+                    cursor.execute("DBCC CHECKDB() WITH NO_INFOMSGS")
+                    st.success("✅ Database integrity check completed successfully")
+                    
+            except Exception as e:
+                st.error(f"❌ Database integrity check failed: {str(e)}")
+    
+    @staticmethod
+    def _update_statistics(core_instance):
+        """Update database statistics."""
+        with st.spinner("Updating database statistics..."):
+            try:
+                connector = core_instance.connector
+                if not connector or not connector.connection:
+                    st.error("Database connection not available")
+                    return
+                
+                with connector.connection.cursor() as cursor:
+                    cursor.execute("EXEC sp_updatestats")
+                    st.success("✅ Database statistics updated successfully")
+                    
+            except Exception as e:
+                st.error(f"❌ Statistics update failed: {str(e)}")
+    
+    @staticmethod
+    def _rebuild_indexes(core_instance):
+        """Rebuild database indexes."""
+        with st.spinner("Rebuilding database indexes..."):
+            try:
+                connector = core_instance.connector
+                if not connector or not connector.connection:
+                    st.error("Database connection not available")
+                    return
+                
+                with connector.connection.cursor() as cursor:
+                    # Get list of indexes that need rebuilding (fragmentation > 30%)
+                    cursor.execute("""
+                        SELECT 
+                            OBJECT_NAME(object_id) as table_name,
+                            name as index_name,
+                            avg_fragmentation_in_percent
+                        FROM sys.dm_db_index_physical_stats(DB_ID(), NULL, NULL, NULL, 'LIMITED')
+                        WHERE avg_fragmentation_in_percent > 30 
+                        AND index_id > 0
+                    """)
+                    
+                    indexes_to_rebuild = cursor.fetchall()
+                    
+                    if indexes_to_rebuild:
+                        st.info(f"Found {len(indexes_to_rebuild)} indexes that need rebuilding")
+                        
+                        for table_name, index_name, fragmentation in indexes_to_rebuild:
+                            rebuild_sql = f"ALTER INDEX [{index_name}] ON [{table_name}] REBUILD"
+                            cursor.execute(rebuild_sql)
+                        
+                        st.success(f"✅ Rebuilt {len(indexes_to_rebuild)} fragmented indexes")
+                    else:
+                        st.info("✅ No indexes require rebuilding (fragmentation < 30%)")
+                    
+            except Exception as e:
+                st.error(f"❌ Index rebuild failed: {str(e)}")
+    
+    @staticmethod
+    def render_connection_status(core_instance):
+        """Render database connection status and details."""
+        st.subheader("🔗 Database Connection")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            try:
+                connector = core_instance.connector
+                if connector and connector.test_connection():
+                    st.success("🟢 Database Connected")
+                    
+                    # Show connection details
+                    config = connector.config
+                    if config:
+                        st.markdown("**Connection Details:**")
+                        st.markdown(f"- **Server:** `{config.server}`")
+                        st.markdown(f"- **Database:** `{config.database}`")
+                        st.markdown(f"- **Driver:** `{config.driver}`")
+                        st.markdown(f"- **Authentication:** `{'Windows' if config.trusted_connection else 'SQL Server'}`")
+                else:
+                    st.error("🔴 Database Disconnected")
+                    
+            except Exception as e:
+                st.error(f"🔴 Connection Error: {str(e)}")
+        
+        with col2:
+            st.markdown("**Quick Actions:**")
+            
+            if st.button("🔄 Test Connection", help="Test the current database connection"):
+                DatabaseUtilsWidget._test_connection(core_instance)
+            
+            if st.button("📊 Connection Info", help="Show detailed connection information"):
+                DatabaseUtilsWidget._show_connection_info(core_instance)
+    
+    @staticmethod
+    def _test_connection(core_instance):
+        """Test database connection."""
+        with st.spinner("Testing database connection..."):
+            try:
+                connector = core_instance.connector
+                if connector and connector.test_connection():
+                    st.success("✅ Database connection test successful")
+                else:
+                    st.error("❌ Database connection test failed")
+            except Exception as e:
+                st.error(f"❌ Connection test error: {str(e)}")
+    
+    @staticmethod
+    def _show_connection_info(core_instance):
+        """Show detailed connection information."""
+        try:
+            connector = core_instance.connector
+            if not connector or not connector.connection:
+                st.error("Database connection not available")
+                return
+            
+            with connector.connection.cursor() as cursor:
+                # Get server and database info
+                cursor.execute("""
+                    SELECT 
+                        @@SERVERNAME as server_name,
+                        @@VERSION as sql_version,
+                        DB_NAME() as current_database,
+                        SUSER_SNAME() as login_name,
+                        GETDATE() as current_time
+                """)
+                
+                row = cursor.fetchone()
+                if row:
+                    st.markdown("**Server Information:**")
+                    st.markdown(f"- **Server Name:** `{row[0]}`")
+                    st.markdown(f"- **Current Database:** `{row[2]}`")
+                    st.markdown(f"- **Login Name:** `{row[3]}`")
+                    st.markdown(f"- **Server Time:** `{row[4]}`")
+                    
+                    with st.expander("📋 SQL Server Version Details"):
+                        st.text(row[1])
+                        
+        except Exception as e:
+            st.error(f"Could not retrieve connection info: {str(e)}")
+    
+    @staticmethod
+    def render_full_database_utils_page(core_instance):
+        """Render the complete database utilities page."""
+        st.title("🗄️ Database Utilities")
+        
+        st.markdown("""
+        <div style="background: linear-gradient(145deg, #2a2a3e 0%, #1f1f32 100%); 
+                    padding: 1.5rem; border-radius: 10px; border: 1px solid #3a3a54; margin: 10px 0;">
+            <h4 style="color: #a78bfa; margin-top: 0;">🛠️ Database Management Tools</h4>
+            <p style="color: #e1e1e6; margin: 0;">
+                Comprehensive database utilities for backup operations, maintenance tasks, and connection management.
+                Use these tools to ensure database reliability and performance.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Connection Status Section
+        DatabaseUtilsWidget.render_connection_status(core_instance)
+        st.divider()
+        
+        # Backup Section
+        DatabaseUtilsWidget.render_backup_section(core_instance)
+        st.divider()
+        
+        # Backup History Section
+        DatabaseUtilsWidget.render_backup_history(core_instance)
+        st.divider()
+        
+        # Maintenance Section
+        DatabaseUtilsWidget.render_database_maintenance(core_instance)

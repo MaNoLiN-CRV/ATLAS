@@ -88,3 +88,25 @@ class MSSQLConnector:
         except Exception as e:
             print(f"Connection test failed: {e}")
             return False
+    
+    def execute_query(self, query: str):
+        """Execute a SQL query.
+        
+        Args:
+            query: The SQL query to execute
+            
+        Raises:
+            RuntimeError: If connection is not established
+            Exception: If query execution fails
+        """
+        if self.connection is None:
+            raise RuntimeError("Connection not established. Call connect() first.")
+        
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(query)
+                # For queries that return results, you might want to return them
+                # For now, this is mainly for DDL/DML operations like BACKUP
+        except Exception as e:
+            print(f"Query execution failed: {e}")
+            raise
