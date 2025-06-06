@@ -17,10 +17,11 @@ class BackupMaker:
         self.connector = connector
         self.database_name = ConfigManager.database
 
-    def make_backup(self, backup_file_path: str): 
+    def make_backup(self, backup_file_path: str) -> bool: 
         """
         Creates a database backup at the specified file path.
         """
+        correct = True
         try:
             # Format the SQL query using the instance's database_name
             # and the provided backup_file_path.
@@ -32,4 +33,6 @@ class BackupMaker:
             print(f"Backup of database '{self.database_name}' created at '{backup_file_path}'")
         except Exception as e:
             print(f"Error creating backup: {e}")
+            correct = False
+        return correct
 
