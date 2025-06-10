@@ -29,7 +29,6 @@ class BackupMaker:
         """
         correct = True
         try:
-            # Seleccionar el template adecuado según si se requiere compresión
             if compress:
                 final_query = self.SQL_BACKUP_COMPRESSED_TEMPLATE.format(
                     db_name=self.database_name,

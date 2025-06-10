@@ -4,6 +4,7 @@ from datetime import datetime
 import streamlit as st
 from ..common.models import CustomMetrics, RawPerformanceData
 from ..utils.memory_monitor import MemoryMonitor
+from .cached_dataframe import CachedDataFrame
 
 
 class GUIAdapter:
@@ -11,6 +12,7 @@ class GUIAdapter:
     
     def __init__(self):
         self.data_cache: List[Dict[str, Any]] = []
+        self.cached_df = CachedDataFrame.get_instance()  # Singleton
         self.last_update: Optional[datetime] = None
         self.update_callbacks: List[Callable] = []
         self.memory_monitor = MemoryMonitor()
@@ -50,49 +52,85 @@ class GUIAdapter:
                 record_dict['metric_timestamp'] = metric['timestamp']
                 self.data_cache.append(record_dict)
         
+        # Cached dataframe invalidation
+        self.cached_df.invalidate()
+        
         self.last_update = datetime.now()
         self._notify_subscribers()
         
         self.memory_monitor.print_memory_usage("After adding new data", self.data_cache)
 
     def get_dataframe(self) -> pd.DataFrame:
-        """Convert cached data to pandas DataFrame for visualization."""
-        if not self.data_cache:
-            return pd.DataFrame()
+        """Convert cached data to pandas DataFrame with caching."""
+        # Check if we need to regenerate the DataFrame
+        if self.cached_df.is_dirty() or self.cached_df.is_empty():
+            if not self.data_cache:
+                self.cached_df.clear()
+                return pd.DataFrame()
+            
+            print("Regenerating DataFrame from cache...")
+            df = pd.DataFrame(self.data_cache)
+            
+            # Calculate DataFrame memory usage
+            df_memory_mb = self.memory_monitor.calculate_dataframe_memory(df)
+            print(f"DataFrame memory usage (before optimization): {df_memory_mb:.2f} MB")
+            
+            # Optimize data types for memory efficiency
+            df = self._optimize_dataframe_dtypes(df)
+            
+            # Calculate optimized memory usage
+            optimized_memory_mb = self.memory_monitor.calculate_dataframe_memory(df)
+            print(f"DataFrame memory usage (after optimization): {optimized_memory_mb:.2f} MB")
+            print(f"Memory saved: {df_memory_mb - optimized_memory_mb:.2f} MB")
+            
+            # Update the cached DataFrame
+            self.cached_df.update_dataframe(df)
         
-        print("Converting cache to DataFrame...")
-        self.memory_monitor.print_memory_usage("Before DataFrame conversion", self.data_cache)
-        
-        df = pd.DataFrame(self.data_cache)
-        
-        # Calculate DataFrame memory usage
-        df_memory_mb = self.memory_monitor.calculate_dataframe_memory(df)
-        print(f"DataFrame memory usage: {df_memory_mb:.2f} MB")
-        
-        # Ensure datetime columns are properly typed
+        return self.cached_df.get_dataframe()
+
+    def _optimize_dataframe_dtypes(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Optimize DataFrame data types to reduce memory usage."""
+        # Convert datetime columns
         datetime_columns = ['creation_time', 'last_execution_time', 'collection_timestamp', 'metric_timestamp']
         for col in datetime_columns:
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col])
         
-        # Ensure numeric columns are properly typed
-        numeric_columns = [
+        # Optimize integer columns
+        int_columns = {
+            'execution_count': pd.Int32Dtype(),
+            'plan_generation_num': pd.Int32Dtype(), 
+            'total_rows': pd.Int64Dtype(),
+            'total_dop': pd.Int16Dtype(),
+            'total_reserved_threads': pd.Int16Dtype(),
+            'total_used_threads': pd.Int16Dtype()
+        }
+        
+        for col, dtype in int_columns.items():
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').astype(dtype)
+        
+        # Optimize float columns to float32 (50% memory reduction)
+        float_columns = [
             'total_elapsed_time_ms', 'total_cpu_time_ms', 'total_logical_reads',
-            'total_physical_reads', 'total_logical_writes', 'execution_count',
-            'avg_elapsed_time_ms', 'avg_cpu_time_ms', 'avg_logical_reads',
-            'avg_physical_reads', 'avg_logical_writes', 'min_elapsed_time_ms',
-            'max_elapsed_time_ms', 'min_cpu_time_ms', 'max_cpu_time_ms',
-            'plan_generation_num', 'total_rows', 'avg_rows_returned',
-            'total_dop', 'avg_dop', 'total_grant_kb', 'avg_grant_kb',
-            'total_used_grant_kb', 'avg_used_grant_kb', 'total_ideal_grant_kb',
-            'avg_ideal_grant_kb', 'total_reserved_threads', 'total_used_threads'
+            'total_physical_reads', 'total_logical_writes', 'avg_elapsed_time_ms',
+            'avg_cpu_time_ms', 'avg_logical_reads', 'avg_physical_reads',
+            'avg_logical_writes', 'min_elapsed_time_ms', 'max_elapsed_time_ms',
+            'min_cpu_time_ms', 'max_cpu_time_ms', 'avg_rows_returned',
+            'avg_dop', 'total_grant_kb', 'avg_grant_kb', 'total_used_grant_kb',
+            'avg_used_grant_kb', 'total_ideal_grant_kb', 'avg_ideal_grant_kb'
         ]
         
-        for col in numeric_columns:
+        for col in float_columns:
             if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
+                df[col] = pd.to_numeric(df[col], errors='coerce').astype('float32')
         
-        self.memory_monitor.print_memory_usage("After DataFrame conversion", self.data_cache)
+        # Convert high-cardinality text columns to category if beneficial
+        text_columns = ['query_hash', 'plan_hash']
+        for col in text_columns:
+            if col in df.columns and df[col].nunique() / len(df) < 0.5:
+                df[col] = df[col].astype('category')
+        
         return df
     
     def get_summary_stats(self) -> Dict[str, Any]:
@@ -167,7 +205,7 @@ class GUIAdapter:
         
         # Filter by time window
         cutoff_time = datetime.now() - pd.Timedelta(hours=time_window_hours)
-        df_filtered = df[df['collection_timestamp'] >= cutoff_time]
+        df_filtered = df[df['collection_timestamp'] >= cutoff_time].copy() 
         
         if df_filtered.empty:
             return pd.DataFrame()
