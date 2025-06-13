@@ -33,6 +33,10 @@ ATLAS is a comprehensive database performance monitoring and analysis tool desig
 4. **Core** receives notifications via Observer pattern and coordinates the system
 5. **GUI Adapter** handles both initial data loading and incremental updates
 
+### Architecture ⚙️
+
+
+
 ## 🚀 Installation
 
 ### Prerequisites
@@ -217,13 +221,6 @@ Ensure your SQL Server user has the following permissions:
 5. Commit changes: `git commit -m 'Add amazing feature'`
 6. Push to branch: `git push origin feature/amazing-feature`
 7. Submit a Pull Request
-
-### Code Style
-
-- Follow PEP 8 guidelines
-- Use type hints where possible
-- Add docstrings for all public methods
-- Write unit tests for new features
 
 ## 📄 License
 
