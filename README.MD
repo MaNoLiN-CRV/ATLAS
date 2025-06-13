@@ -35,7 +35,7 @@ ATLAS is a comprehensive database performance monitoring and analysis tool desig
 
 ### Architecture ⚙️
 
-
+[[architecture.png]]
 
 ## 🚀 Installation
 
