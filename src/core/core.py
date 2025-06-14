@@ -1,6 +1,7 @@
 import threading
 import time
 from typing import List, Callable, Optional
+from src.core.mq_bridge import MQBridge
 from src.database import MSSQLConnector
 from src.database import SQLiteRepository
 from src.performance.analyzer import PerformanceAnalyzer
@@ -39,6 +40,7 @@ class Core:
         self.config = ConfigManager()
         self.connector = MSSQLConnector()
         self.sqlite_repository = SQLiteRepository()
+        self.mq_bridge : MQBridge = None  
         self._initialize_database(self.connector)
         self.collector = PerformanceCollector(self.connector)
         self.analyzer = PerformanceAnalyzer(self.sqlite_repository)
@@ -46,6 +48,12 @@ class Core:
         
         # GUI adapter for observer pattern
         self.gui_adapter = GUIAdapter()
+
+        # Initialize RabbitMQ if configured
+        if self.config.get_rabbitmq_config().get('enabled', False):
+            self.initialize_rabbitmq()
+        
+        
         
         # Subscribe to analyzer notifications
         self.sqlite_repository.add_observer(self._on_new_data)
@@ -57,6 +65,45 @@ class Core:
         
         # Mark as initialized
         self._initialized = True
+    
+    def initialize_rabbitmq(self):
+        """Initialize RabbitMQ connection if needed."""
+        config = self.config.get_rabbitmq_config()
+        self.mq_bridge = MQBridge(
+            host=config.get('host', 'localhost'),
+            port=config.get('port', 5672),
+            username=config.get('username', 'guest'),
+            password=config.get('password', 'guest'),
+            virtual_host=config.get('virtual_host', '/')
+        )
+        
+        try:
+            self.mq_bridge.connect()
+            print("RabbitMQ connection established")
+            
+            # Declare necessary queues
+            self.mq_bridge.declare_queue('performance_data', durable=True)
+            print("Declared RabbitMQ queue 'performance_data'")
+            
+            # Verify connection is actually working
+            if not self.mq_bridge.is_connected():
+                raise Exception("Connection established but verification failed")
+                
+            print("RabbitMQ initialization completed successfully")
+            
+        except Exception as e:
+            print(f"WARNING: Failed to connect to RabbitMQ: {e}")
+            print("The application will continue but message queue functionality may not work.")
+            
+            # Clean up failed connection attempt
+            if self.mq_bridge:
+                try:
+                    self.mq_bridge.close()
+                except:
+                    pass
+                self.mq_bridge = None
+    
+
 
     def _initialize_database(self, connector: MSSQLConnector):
         """Initialize database connections."""
