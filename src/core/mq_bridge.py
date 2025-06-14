@@ -11,9 +11,8 @@ class MQBridge:
     def __init__(self, connection_params: Optional[pika.ConnectionParameters] = None):
         self.connection_params = connection_params or pika.ConnectionParameters('localhost')
         self.connection = None
-        self.channel = None
         self._callbacks = {}
-        
+
     def connect(self):
         """Establish connection to RabbitMQ"""
         try:
@@ -40,7 +39,7 @@ class MQBridge:
         """Send a message to the specified queue"""
         if not self.channel:
             self.connect()
-        
+
         try:
             self.declare_queue(queue_name)
             self.channel.basic_publish(
@@ -58,10 +57,10 @@ class MQBridge:
         """Subscribe to a queue with a callback function"""
         if not self.channel:
             self.connect()
-        
+
         self.declare_queue(queue_name)
         self._callbacks[queue_name] = callback
-        
+
         def wrapper(ch, method, properties, body):
             try:
                 message = json.loads(body.decode('utf-8'))
@@ -70,7 +69,7 @@ class MQBridge:
             except Exception as e:
                 logger.error(f"Error processing message from {queue_name}: {e}")
                 ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
-        
+
         self.channel.basic_consume(queue=queue_name, on_message_callback=wrapper)
         logger.info(f"Subscribed to queue: {queue_name}")
 
@@ -78,7 +77,7 @@ class MQBridge:
         """Start consuming messages (blocking call)"""
         if not self.channel:
             raise RuntimeError("No channel available. Call connect() first.")
-        
+
         logger.info("Starting to consume messages...")
         try:
             self.channel.start_consuming()
