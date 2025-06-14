@@ -9,6 +9,7 @@ from src.performance.collector import PerformanceCollector
 from src.utils.config_manager import ConfigManager
 from src.gui import GUIAdapter
 from src.utils.database_utils import DatabaseUtils
+from src.core.error_manager import ErrorManager
 
 
 class Core:
@@ -45,6 +46,7 @@ class Core:
         self.collector = PerformanceCollector(self.connector)
         self.analyzer = PerformanceAnalyzer(self.sqlite_repository)
         self.databaseUtils = DatabaseUtils(self.connector)
+        self.errorManager = ErrorManager()
 
         # GUI adapter for observer pattern
         self.gui_adapter = GUIAdapter()
@@ -120,6 +122,9 @@ class Core:
                     pass
 
 
+    def get_error_manager(self) -> ErrorManager:
+        """Get the ErrorManager instance."""
+        return self.errorManager
 
     def _initialize_database(self, connector: MSSQLConnector):
         """Initialize database connections."""
