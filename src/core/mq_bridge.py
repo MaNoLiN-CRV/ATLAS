@@ -96,3 +96,7 @@ class MQBridge:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.disconnect()
+
+    def is_connected(self) -> bool:
+        """Check if the connection to RabbitMQ is established."""
+        return self.connection is not None and not self.connection.is_closed
