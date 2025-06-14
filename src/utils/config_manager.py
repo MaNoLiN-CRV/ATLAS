@@ -10,10 +10,24 @@ class ConfigManager:
     db_host: Optional[str] = None
     username: Optional[str] = None
     password: Optional[str] = None
+    rabbitmq: Optional[bool] = False
+    
     port: Optional[int] = None
     database: Optional[str] = None
     driver: Optional[str] = None
     collection_lapse: Optional[int] = None
+
+    # RabbitMQ configuration
+    rabbitmq_host: Optional[str] = None
+    rabbitmq_port: Optional[int] = None
+    rabbitmq_user: Optional[str] = None
+    rabbitmq_password: Optional[str] = None
+    rabbitmq_exchange: Optional[str] = None
+    rabbitmq_queue: Optional[str] = None
+    rabbitmq_routing_key: Optional[str] = None
+    rabbitmq_vhost: Optional[str] = None
+    rabbitmq_ssl: Optional[bool] = None
+    rabbitmq_heartbeat: Optional[int] = None
 
     @staticmethod
     def _load_config_values(env_file_path: Optional[str] = None):
@@ -48,6 +62,33 @@ class ConfigManager:
         except ValueError:
             ConfigManager.collection_lapse = 60  # Default 60 seconds if conversion fails
             # Consider logging a warning here
+
+        # RabbitMQ configuration
+        rabbitmq_str = os.getenv('RABBITMQ', 'false').lower()
+        ConfigManager.rabbitmq = rabbitmq_str in ('true', '1', 'yes', 'on')
+        
+        ConfigManager.rabbitmq_host = os.getenv('RABBITMQ_HOST', 'localhost')
+        ConfigManager.rabbitmq_user = os.getenv('RABBITMQ_USER', 'guest')
+        ConfigManager.rabbitmq_password = os.getenv('RABBITMQ_PASSWORD', 'guest')
+        ConfigManager.rabbitmq_exchange = os.getenv('RABBITMQ_EXCHANGE', 'atlas_performance')
+        ConfigManager.rabbitmq_queue = os.getenv('RABBITMQ_QUEUE', 'atlas_performance_queue')
+        ConfigManager.rabbitmq_routing_key = os.getenv('RABBITMQ_ROUTING_KEY', 'atlas_performance_key')
+        ConfigManager.rabbitmq_vhost = os.getenv('RABBITMQ_VHOST', '/')
+        
+        rabbitmq_port_str = os.getenv('RABBITMQ_PORT', '5672')
+        try:
+            ConfigManager.rabbitmq_port = int(rabbitmq_port_str)
+        except ValueError:
+            ConfigManager.rabbitmq_port = 5672  # Default RabbitMQ port
+            
+        rabbitmq_ssl_str = os.getenv('RABBITMQ_SSL', 'false').lower()
+        ConfigManager.rabbitmq_ssl = rabbitmq_ssl_str in ('true', '1', 'yes', 'on')
+        
+        rabbitmq_heartbeat_str = os.getenv('RABBITMQ_HEARTBEAT', '60')
+        try:
+            ConfigManager.rabbitmq_heartbeat = int(rabbitmq_heartbeat_str)
+        except ValueError:
+            ConfigManager.rabbitmq_heartbeat = 60  # Default heartbeat interval
 
     def __init__(self, env_file_path: Optional[str] = None):
         """
@@ -88,6 +129,28 @@ class ConfigManager:
             'username': ConfigManager.username,
             'password': ConfigManager.password,
             'port': ConfigManager.port
+        }
+    
+    @staticmethod
+    def get_rabbitmq_config() -> dict:
+        """
+        Get RabbitMQ configuration as dictionary
+        
+        Returns:
+            Dictionary with RabbitMQ configuration
+        """
+        return {
+            'enabled': ConfigManager.rabbitmq,
+            'host': ConfigManager.rabbitmq_host,
+            'port': ConfigManager.rabbitmq_port,
+            'user': ConfigManager.rabbitmq_user,
+            'password': ConfigManager.rabbitmq_password,
+            'exchange': ConfigManager.rabbitmq_exchange,
+            'queue': ConfigManager.rabbitmq_queue,
+            'routing_key': ConfigManager.rabbitmq_routing_key,
+            'vhost': ConfigManager.rabbitmq_vhost,
+            'ssl': ConfigManager.rabbitmq_ssl,
+            'heartbeat': ConfigManager.rabbitmq_heartbeat
         }
     
     @staticmethod
@@ -145,6 +208,7 @@ class ConfigManager:
         """
         return {
             'database': ConfigManager.get_db_config(),
+            'rabbitmq': ConfigManager.get_rabbitmq_config(),
             'collection_lapse': ConfigManager.collection_lapse,
             'valid': ConfigManager.validate_config()
         }
